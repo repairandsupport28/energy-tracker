@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามพลังงาน ไฟฟ้า สารเคมี และการผลิตไอน้ำ</title>
+  
+  <!-- PWA Manifest & Meta -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js, SheetJS, html2pdf CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-bolt-lightning"></i>
+        </div>
+        <div class="brand-text">
+          <h1>ระบบติดตามพลังงาน ไฟฟ้า สารเคมี และการผลิตไอน้ำ</h1>
+          <p>โรงงานการซ่อมและสนับสนุน — รายงานสรุปผลรายวัน / สัปดาห์ / เดือน และ ยอดคงคลังคำนวณอัตโนมัติ</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <button class="btn-secondary" id="sampleDataBtn" title="สร้างข้อมูลตัวอย่างทดสอบระบบ">
+          <i class="fa-solid fa-dice"></i> ข้อมูลตัวอย่าง
+        </button>
+        <button class="btn-secondary" id="exportExcelBtn">
+          <i class="fa-solid fa-file-excel"></i> Export Excel
+        </button>
+        <button class="btn-primary" id="exportPdfBtn">
+          <i class="fa-solid fa-file-pdf"></i> Export PDF
+        </button>
+        <button class="theme-toggle" id="themeToggleBtn" title="เปลี่ยนธีม">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" data-tab="entryFormView">
+        <i class="fa-solid fa-pen-to-square"></i> บันทึกข้อมูลประจำวัน
+      </button>
+      <button class="tab-btn" data-tab="inventoryFormView">
+        <i class="fa-solid fa-boxes-stacked"></i> รับเข้า/ตั้งค่ายอดยกมาคลัง
+      </button>
+      <button class="tab-btn" data-tab="inventoryDashboardView">
+        <i class="fa-solid fa-chart-pie"></i> ยอดคงคลังหักลบอัตโนมัติ
+      </button>
+      <button class="tab-btn" data-tab="dailyView">
+        <i class="fa-solid fa-chart-line"></i> สรุปรายวัน
+      </button>
+      <button class="tab-btn" data-tab="weeklyView">
+        <i class="fa-solid fa-chart-column"></i> สรุปรายสัปดาห์
+      </button>
+      <button class="tab-btn" data-tab="monthlyView">
+        <i class="fa-solid fa-calendar-days"></i> สรุปรายเดือน
+      </button>
+      <button class="tab-btn" data-tab="logsView">
+        <i class="fa-solid fa-table-list"></i> ประวัติบันทึกข้อมูล
+      </button>
+      <button class="tab-btn" data-tab="settingsView">
+        <i class="fa-solid fa-gears"></i> การตั้งค่า & Sync
+      </button>
+    </div>
+
+    <!-- Top KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card solar">
+        <div class="kpi-title"><i class="fa-solid fa-sun"></i> ไฟฟ้าผลิตได้ (Solar)</div>
+        <div class="kpi-value" id="kpiSolarTotal">0 <span style="font-size: 1rem;">kWh</span></div>
+        <div class="kpi-sub">Solar Rooftop + Solar Farm</div>
+      </div>
+      <div class="kpi-card electricity">
+        <div class="kpi-title"><i class="fa-solid fa-plug"></i> ใช้ไฟฟ้า PEA รวม</div>
+        <div class="kpi-value" id="kpiElectricTotal">0 <span style="font-size: 1rem;">kWh</span></div>
+        <div class="kpi-sub">ณ กรง.ฯ + ณ โรงสูบน้ำแม่น้ำ</div>
+      </div>
+      <div class="kpi-card chemical">
+        <div class="kpi-title"><i class="fa-solid fa-flask"></i> สารเคมีเบิกใช้รวม</div>
+        <div class="kpi-value" id="kpiChemTotal">0 <span style="font-size: 1rem;">kg</span></div>
+        <div class="kpi-sub">สารส้ม + ปูนขาว + น้ำตาล</div>
+      </div>
+      <div class="kpi-card steam">
+        <div class="kpi-title"><i class="fa-solid fa-industry"></i> ชั่วโมงไอน้ำ (6 โรง)</div>
+        <div class="kpi-value" id="kpiSteamHoursTotal">0 <span style="font-size: 1rem;">ชม.</span></div>
+        <div class="kpi-sub">NC, NG, P, IMI, B, ACID</div>
+      </div>
+      <div class="kpi-card fuel">
+        <div class="kpi-title"><i class="fa-solid fa-boxes-stacked"></i> ยอดคงคลังหักลบสุทธิ</div>
+        <div class="kpi-value" id="kpiInventorySummary">0 <span style="font-size: 1rem;">รายการ</span></div>
+        <div class="kpi-sub" id="kpiInventoryDetail">สารส้ม / ปูนขาว / น้ำมันเตา / LPG</div>
+      </div>
+    </div>
+
+    <!-- TAB 1: DAILY USAGE ENTRY FORM VIEW -->
+    <div class="view-content active" id="entryFormView">
+      <div class="form-card">
+        <div class="form-header">
+          <h2><i class="fa-solid fa-file-signature text-accent"></i> แบบฟอร์มบันทึกการใช้ประจำวัน (แยกบันทึกอิสระตามส่วนงาน)</h2>
+          <div class="input-group" style="margin-bottom:0; min-width: 220px;">
+            <label for="recordDate">วันที่และเวลาบันทึก:</label>
+            <div class="input-wrapper">
+              <input type="datetime-local" id="recordDate" required>
+            </div>
+          </div>
+        </div>
+
+        <form id="trackingForm">
+          <div class="section-grid">
+            
+            <!-- 1. Electricity Section with Updated Labels -->
+            <div class="form-section">
+              <div class="section-title electricity-icon">
+                <i class="fa-solid fa-bolt"></i> 1. ส่วนไฟฟ้า (Electricity)
+              </div>
+              <div class="input-group">
+                <label for="solarRooftop">ปริมาณผลิตไฟ: Solar Rooftop</label>
+                <div class="input-wrapper">
+                  <input type="number" id="solarRooftop" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kWh</span>
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="solarFarm">ปริมาณผลิตไฟ: Solar Farm</label>
+                <div class="input-wrapper">
+                  <input type="number" id="solarFarm" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kWh</span>
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="useKrong">ปริมาณใช้ไฟฟ้า: ใช้ไฟฟ้าPEA ณ กรง.ฯ</label>
+                <div class="input-wrapper">
+                  <input type="number" id="useKrong" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kWh</span>
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="useWaterPump">ปริมาณใช้ไฟฟ้า: ใช้ไฟฟ้าPEA ณ โรงสูบน้ำแม่น้ำ</label>
+                <div class="input-wrapper">
+                  <input type="number" id="useWaterPump" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kWh</span>
+                </div>
+              </div>
+              
+              <div class="input-group" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+                <label for="electricRecorder" style="color: #60a5fa; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> ผู้บันทึกส่วนไฟฟ้า:</label>
+                <div class="input-wrapper">
+                  <input type="text" id="electricRecorder" placeholder="เช่น นายวิชัย (ช่างไฟฟ้า)">
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="electricNotes" style="color: #93c5fd;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุ/ข้อสังเกต (ส่วนไฟฟ้า):</label>
+                <div class="input-wrapper">
+                  <input type="text" id="electricNotes" placeholder="เช่น สภาพแดดดี / ล้างแผงโซลาร์">
+                </div>
+              </div>
+
+              <!-- Independent Save Button for Electricity Section -->
+              <div style="margin-top: 16px;">
+                <button type="button" class="btn-section-save electricity-btn" onclick="saveSection('electricity')">
+                  <i class="fa-solid fa-bolt"></i> บันทึกเฉพาะส่วนไฟฟ้า
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Water Treatment Chemical Usage Section -->
+            <div class="form-section">
+              <div class="section-title chemical-icon">
+                <i class="fa-solid fa-vial-circle-check"></i> 2. ส่วนผลิตน้ำประปา / สารเคมี (ปริมาณที่ใช้ประจำวัน)
+              </div>
+              <div class="input-group">
+                <label for="chemAlum">สารส้ม ALUM (ปริมาณที่ใช้)</label>
+                <div class="input-wrapper">
+                  <input type="number" id="chemAlum" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kg</span>
+                </div>
+                <small style="color: var(--accent-chemical);" id="liveStockAlum">คงคลังหลังหักลบ: - kg</small>
+              </div>
+              <div class="input-group">
+                <label for="chemCaOH">ปูนขาว CaOH₂ (ปริมาณที่ใช้)</label>
+                <div class="input-wrapper">
+                  <input type="number" id="chemCaOH" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kg</span>
+                </div>
+                <small style="color: var(--accent-chemical);" id="liveStockCaOH">คงคลังหลังหักลบ: - kg</small>
+              </div>
+              <div class="input-group">
+                <label for="chemSugar">น้ำตาล Sugar (ปริมาณที่ใช้)</label>
+                <div class="input-wrapper">
+                  <input type="number" id="chemSugar" step="0.01" min="0" placeholder="0.00">
+                  <span class="unit-tag">kg</span>
+                </div>
+                <small style="color: var(--accent-chemical);" id="liveStockSugar">คงคลังหลังหักลบ: - kg</small>
+              </div>
+              
+              <div class="input-group" style="margin-top: 25px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+                <label for="chemRecorder" style="color: #34d399; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> ผู้บันทึกส่วนผลิตน้ำประปา:</label>
+                <div class="input-wrapper">
+                  <input type="text" id="chemRecorder" placeholder="เช่น นายอนันต์ (จนท.ประปา)">
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="chemNotes" style="color: #6ee7b7;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุ/ข้อสังเกต (ส่วนน้ำประปา):</label>
+                <div class="input-wrapper">
+                  <input type="text" id="chemNotes" placeholder="เช่น ความขุ่นน้ำดิบปกติ / เติมสารส้มถัง A">
+                </div>
+              </div>
+
+              <!-- Independent Save Button for Chemical Section -->
+              <div style="margin-top: 16px;">
+                <button type="button" class="btn-section-save chemical-btn" onclick="saveSection('chemical')">
+                  <i class="fa-solid fa-flask"></i> บันทึกเฉพาะส่วนผลิตน้ำประปา (หักลบคลังอัตโนมัติ)
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Steam Fuel & Plant Operating Times Combined Section -->
+            <div class="form-section" style="grid-column: span 2;">
+              <div class="section-title steam-icon">
+                <i class="fa-solid fa-smog"></i> 3. ส่วนผลิตไอน้ำ & เชื้อเพลิง (เวลาการทำงาน 6 โรงงาน + เชื้อเพลิงที่ใช้)
+              </div>
+              
+              <!-- Plant Grid -->
+              <div class="plant-grid" style="margin-bottom: 16px;">
+                <!-- Plant NC -->
+                <div class="plant-item">
+                  <div class="plant-name">
+                    <span>NC (โรงงานผลิตไนโตรเซลลูโลส)</span>
+                    <span class="plant-hours-calc" id="calcNcHours">0 ชม.</span>
+                  </div>
+                  <div class="time-range">
+                    <input type="time" id="ncStart">
+                    <span class="time-sep">ถึง</span>
+                    <input type="time" id="ncEnd">
+                  </div>
+                </div>
+
+                <!-- Plant NG -->
+                <div class="plant-item">
+                  <div class="plant-name">
+                    <span>NG (โรงงานผลิตไนโตรกลีเซอรีน)</span>
+                    <span class="plant-hours-calc" id="calcNgHours">0 ชม.</span>
+                  </div>
+                  <div class="time-range">
+                    <input type="time" id="ngStart">
+                    <span class="time-sep">ถึง</span>
+                    <input type="time" id="ngEnd">
+                  </div>
+                </div>
+
+                <!-- Plant P -->
+                <div class="plant-item">
+                  <div class="plant-name">
+                    <span>P (โรงงานผลิตดินส่งกระสุน)</span>
+                    <span class="plant-hours-calc" id="calcPHours">0 ชม.</span>
+                  </div>
+                  <div class="time-range">
+                    <input type="time" id="pStart">
+                    <span class="time-sep">ถึง</span>
+                    <input type="time" id="pEnd">
+                  </div>
+                </div>
+
+                <!-- Plant IMI -->
+                <div class="plant-item">
+                  <div class="plant-name">
+                    <span>IMI (ดินส่งกระสุนเครื่องยิงลูกระเบิด)</span>
+                    <span class="plant-hours-calc" id="calcImiHours">0 ชม.</span>
+                  </div>
+                  <div class="time-range">
+                    <input type="time" id="imiStart">
+                    <span class="time-sep">ถึง</span>
+                    <input type="time" id="imiEnd">
+                  </div>
+                </div>
+
+                <!-- Plant B -->
+                <div class="plant-item">
+                  <div class="plant-name">
+                    <span>B (โรงงานผลิตดินกระสุนเม็ดกลม)</span>
+                    <span class="plant-hours-calc" id="calcBHours">0 ชม.</span>
+                  </div>
+                  <div class="time-range">
+                    <input type="time" id="bStart">
+                    <span class="time-sep">ถึง</span>
+                    <input type="time" id="bEnd">
+                  </div>
+                </div>
+
+                <!-- Plant ACID -->
+                <div class="plant-item">
+                  <div class="plant-name">
+                    <span>ACID (โรงงานผลิตกรดและอีเธอร์)</span>
+                    <span class="plant-hours-calc" id="calcAcidHours">0 ชม.</span>
+                  </div>
+                  <div class="time-range">
+                    <input type="time" id="acidStart">
+                    <span class="time-sep">ถึง</span>
+                    <input type="time" id="acidEnd">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fuel Fields -->
+              <div class="section-grid" style="margin-bottom: 12px;">
+                <div class="input-group">
+                  <label for="fuelOil">น้ำมันเตาที่ใช้รวม</label>
+                  <div class="input-wrapper">
+                    <input type="number" id="fuelOil" step="0.01" min="0" placeholder="0.00">
+                    <span class="unit-tag">ลิตร</span>
+                  </div>
+                  <small style="color: #f87171;" id="liveStockFuelOil">คงคลังหลังหักลบ: - ลิตร</small>
+                </div>
+                <div class="input-group">
+                  <label for="fuelLPG">แก๊ส LPG ที่ใช้รวม</label>
+                  <div class="input-wrapper">
+                    <input type="number" id="fuelLPG" step="0.01" min="0" placeholder="0.00">
+                    <span class="unit-tag">kg</span>
+                  </div>
+                  <small style="color: #f87171;" id="liveStockFuelLPG">คงคลังหลังหักลบ: - kg</small>
+                </div>
+              </div>
+
+              <!-- Dedicated Recorder & Notes for Steam & Fuel Section -->
+              <div class="section-grid" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-color); margin-bottom: 0;">
+                <div class="input-group">
+                  <label for="steamRecorder" style="color: #f472b6; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> ผู้บันทึกส่วนผลิตไอน้ำและเชื้อเพลิง:</label>
+                  <div class="input-wrapper">
+                    <input type="text" id="steamRecorder" placeholder="เช่น นายธีรเดช (จนท.ไอน้ำ)">
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label for="steamNotes" style="color: #fbcfe8;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุ/ข้อสังเกต (ส่วนไอน้ำ&เชื้อเพลิง):</label>
+                  <div class="input-wrapper">
+                    <input type="text" id="steamNotes" placeholder="เช่น ซ่อมบำรุงวาล์วโรง NC / แรงดันปกติ">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Independent Save Button for Steam & Fuel Section -->
+              <div style="margin-top: 16px;">
+                <button type="button" class="btn-section-save steam-btn" onclick="saveSection('steam')">
+                  <i class="fa-solid fa-industry"></i> บันทึกเฉพาะส่วนผลิตไอน้ำและเชื้อเพลิง (หักลบคลังอัตโนมัติ)
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="form-actions">
+            <button type="reset" class="btn-secondary">
+              <i class="fa-solid fa-rotate-left"></i> ล้างข้อมูล
+            </button>
+            <button type="submit" class="btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> บันทึกรวมทุกส่วนงานพร้อมกัน
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TAB 2: STANDALONE INVENTORY BASELINE / REFILL FORM -->
+    <div class="view-content" id="inventoryFormView">
+      <div class="form-card">
+        <div class="form-header">
+          <h2><i class="fa-solid fa-boxes-stacked text-accent"></i> ตั้งค่ายอดยกมา / รับเข้าคลัง (สำหรับคำนวณหักลบอัตโนมัติ)</h2>
+          <div class="input-group" style="margin-bottom:0; min-width: 220px;">
+            <label for="inventoryDate">วันที่ปรับปรุงยอดคลัง:</label>
+            <div class="input-wrapper">
+              <input type="datetime-local" id="inventoryDate" required>
+            </div>
+          </div>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+          เจ้าหน้าที่สามารถตั้งค่ายอดยกมา หรือกรอกยอดรับเข้าคลังใหม่ได้ที่นี่ ระบบจะนำยอดนี้ไป <strong>คำนวณหักลบกับปริมาณการใช้ประจำวันให้อัตโนมัติ</strong> เพื่อแสดงยอดคงเหลือสุทธิ
+        </p>
+
+        <div class="section-grid">
+          <!-- Chemical Inventory Stock -->
+          <div class="form-section">
+            <div class="section-title chemical-icon">
+              <i class="fa-solid fa-flask"></i> 📦 ตั้งค่ายอดยกมา/รับเข้า สารเคมีผลิตน้ำประปา
+            </div>
+            <div class="input-group">
+              <label for="baseStockAlum" style="color: #34d399;">ยอดยกมา/รับเข้า สารส้ม (ALUM):</label>
+              <div class="input-wrapper">
+                <input type="number" id="baseStockAlum" step="0.01" min="0" placeholder="เช่น 2000.00">
+                <span class="unit-tag">kg</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="baseStockCaOH" style="color: #34d399;">ยอดยกมา/รับเข้า ปูนขาว (CaOH₂):</label>
+              <div class="input-wrapper">
+                <input type="number" id="baseStockCaOH" step="0.01" min="0" placeholder="เช่น 1500.00">
+                <span class="unit-tag">kg</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="baseStockSugar" style="color: #34d399;">ยอดยกมา/รับเข้า น้ำตาล (Sugar):</label>
+              <div class="input-wrapper">
+                <input type="number" id="baseStockSugar" step="0.01" min="0" placeholder="เช่น 500.00">
+                <span class="unit-tag">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fuel Inventory Stock -->
+          <div class="form-section">
+            <div class="section-title fuel-icon">
+              <i class="fa-solid fa-gas-pump"></i> ⛽ ตั้งค่ายอดยกมา/รับเข้า เชื้อเพลิงผลิตไอน้ำ
+            </div>
+            <div class="input-group">
+              <label for="baseStockFuelOil" style="color: #ef4444;">ยอดยกมา/รับเข้า น้ำมันเตา:</label>
+              <div class="input-wrapper">
+                <input type="number" id="baseStockFuelOil" step="0.01" min="0" placeholder="เช่น 20000.00">
+                <span class="unit-tag">ลิตร</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="baseStockFuelLPG" style="color: #ef4444;">ยอดยกมา/รับเข้า แก๊ส LPG:</label>
+              <div class="input-wrapper">
+                <input type="number" id="baseStockFuelLPG" step="0.01" min="0" placeholder="เช่น 5000.00">
+                <span class="unit-tag">kg</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inventory Recorder & Inventory Notes -->
+        <div class="section-grid" style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border-color);">
+          <div class="input-group">
+            <label for="inventoryRecorder" style="color: #f59e0b; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> เจ้าหน้าที่ผู้รับเข้า/ปรับปรุงยอดคลัง:</label>
+            <div class="input-wrapper">
+              <input type="text" id="inventoryRecorder" placeholder="เช่น นายสมศักดิ์ (จนท.คลังพัสดุ)" required>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="inventoryNotes" style="color: #fbbf24;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุรับเข้า/ตั้งค่ายกมา:</label>
+            <div class="input-wrapper">
+              <input type="text" id="inventoryNotes" placeholder="เช่น รับเข้าสารส้มล็อตใหม่ / ตั้งค่ายกมาต้นเดือน">
+            </div>
+          </div>
+        </div>
+
+        <!-- Standalone Inventory Save Button -->
+        <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+          <button type="button" class="btn-primary" onclick="saveSection('inventory')">
+            <i class="fa-solid fa-boxes-stacked"></i> บันทึกยอดยกมา/รับเข้าคลัง (เพื่อคำนวณหักลบ)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: INVENTORY DASHBOARD VIEW -->
+    <div class="view-content" id="inventoryDashboardView">
+      <div class="table-header-tools">
+        <h2><i class="fa-solid fa-boxes-stacked text-accent"></i> รายงานสรุปยอดคงคลังคงเหลือสุทธิ (คำนวณหักลบอัตโนมัติ)</h2>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="kpi-card chemical">
+          <div class="kpi-title"><i class="fa-solid fa-box"></i> ยอดคงคลังสารส้มคงเหลือ</div>
+          <div class="kpi-value" id="invCardAlum">0 <span style="font-size: 0.9rem;">kg</span></div>
+          <div class="kpi-sub" id="subAlumCalc">ยอดยกมา - เบิกใช้รวม</div>
+        </div>
+        <div class="kpi-card chemical">
+          <div class="kpi-title"><i class="fa-solid fa-box"></i> ยอดคงคลังปูนขาวคงเหลือ</div>
+          <div class="kpi-value" id="invCardCaOH">0 <span style="font-size: 0.9rem;">kg</span></div>
+          <div class="kpi-sub" id="subCaOHCalc">ยอดยกมา - เบิกใช้รวม</div>
+        </div>
+        <div class="kpi-card chemical">
+          <div class="kpi-title"><i class="fa-solid fa-box"></i> ยอดคงคลังน้ำตาลคงเหลือ</div>
+          <div class="kpi-value" id="invCardSugar">0 <span style="font-size: 0.9rem;">kg</span></div>
+          <div class="kpi-sub" id="subSugarCalc">ยอดยกมา - เบิกใช้รวม</div>
+        </div>
+        <div class="kpi-card fuel">
+          <div class="kpi-title"><i class="fa-solid fa-oil-can"></i> ยอดคงคลังน้ำมันเตาคงเหลือ</div>
+          <div class="kpi-value" id="invCardFuelOil">0 <span style="font-size: 0.9rem;">ลิตร</span></div>
+          <div class="kpi-sub" id="subFuelOilCalc">ยอดยกมา - ใช้รวม</div>
+        </div>
+        <div class="kpi-card fuel">
+          <div class="kpi-title"><i class="fa-solid fa-fire"></i> ยอดคงคลังแก๊ส LPG คงเหลือ</div>
+          <div class="kpi-value" id="invCardFuelLPG">0 <span style="font-size: 0.9rem;">kg</span></div>
+          <div class="kpi-sub" id="subFuelLPGCalc">ยอดยกมา - ใช้รวม</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-flask chemical-icon"></i> ระดับคงคลังสารเคมีน้ำประปาสุทธิ</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="inventoryChemChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-gas-pump fuel-icon"></i> ระดับคงคลังเชื้อเพลิงสุทธิ</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="inventoryFuelChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: DAILY SUMMARY VIEW -->
+    <div class="view-content" id="dailyView">
+      <div class="table-header-tools">
+        <h2><i class="fa-solid fa-chart-line text-accent"></i> รายงานสรุปผลรายวัน (Daily Summary)</h2>
+        <div class="input-wrapper" style="width: auto;">
+          <input type="date" id="dailyDatePicker">
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-bolt electricity-icon"></i> สัดส่วนผลิต vs ใช้ไฟฟ้า (kWh)</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="dailyElectricityChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-flask chemical-icon"></i> สารเคมีผลิตน้ำประปา (kg)</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="dailyChemicalChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-clock steam-icon"></i> ชั่วโมงดำเนินงานไอน้ำ 6 โรงงาน</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="dailyPlantHoursChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-fire fuel-icon"></i> การใช้เชื้อเพลิงไอน้ำ (น้ำมันเตา/LPG)</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="dailyFuelChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: WEEKLY SUMMARY VIEW -->
+    <div class="view-content" id="weeklyView">
+      <div class="table-header-tools">
+        <h2><i class="fa-solid fa-chart-column text-accent"></i> รายงานสรุปผลรายสัปดาห์ (Weekly Summary)</h2>
+      </div>
+      
+      <div class="charts-grid">
+        <div class="chart-card" style="grid-column: 1 / -1;">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-chart-area electricity-icon"></i> แนวโน้มการใช้และผลิตไฟฟ้าประจำสัปดาห์ (7 วันล่าสุด)</div>
+          </div>
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="weeklyElectricityChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-vial chemical-icon"></i> สารเคมีน้ำประปารายสัปดาห์</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="weeklyChemicalChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-industry steam-icon"></i> สรุปชั่วโมงรวม 6 โรงงานรายสัปดาห์</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="weeklyPlantHoursChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: MONTHLY SUMMARY VIEW -->
+    <div class="view-content" id="monthlyView">
+      <div class="table-header-tools">
+        <h2><i class="fa-solid fa-calendar-days text-accent"></i> รายงานสรุปผลรายเดือน (Monthly Summary)</h2>
+        <div class="input-wrapper" style="width: auto;">
+          <input type="month" id="monthlyPicker">
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card" style="grid-column: 1 / -1;">
+          <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-chart-line"></i> สรุปภาพรวมพลังงานประจำเดือน</div>
+          </div>
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="monthlyEnergyChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: LOGS VIEW WITH SEPARATED RECORDERS & INVENTORY STATUS -->
+    <div class="view-content" id="logsView">
+      <div class="table-card">
+        <div class="table-header-tools">
+          <h2><i class="fa-solid fa-table-list text-accent"></i> ตารางประวัติบันทึกข้อมูลย้อนหลัง</h2>
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="logSearchInput" placeholder="ค้นหาตามวันที่, ผู้บันทึก, หมายเหตุ...">
+          </div>
+        </div>
+
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>วัน-เวลา</th>
+              <th>Solar Rooftop</th>
+              <th>Solar Farm</th>
+              <th>ใช้ไฟฟ้าPEA ณ กรง.ฯ</th>
+              <th>ใช้ไฟฟ้าPEA ณ โรงสูบน้ำแม่น้ำ</th>
+              <th>ผู้บันทึก/หมายเหตุ (ไฟฟ้า)</th>
+              <th>ใช้ สารส้ม</th>
+              <th>ใช้ ปูนขาว</th>
+              <th>ใช้ น้ำตาล</th>
+              <th>ผู้บันทึก/หมายเหตุ (ประปา)</th>
+              <th>เวลางาน 6 โรง (ชม.)</th>
+              <th>ใช้ น้ำมันเตา</th>
+              <th>ใช้ LPG</th>
+              <th>ผู้บันทึก/หมายเหตุ (ไอน้ำ&เชื้อเพลิง)</th>
+              <th>คงคลังสุทธิ (หลังหักลบ)</th>
+              <th>ผู้ปรับปรุงคลัง</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <!-- Dynamic Log Rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 8: SETTINGS & GOOGLE SYNC -->
+    <div class="view-content" id="settingsView">
+      <div class="form-card">
+        <div class="form-header">
+          <h2><i class="fa-solid fa-cloud-arrow-up text-accent"></i> การเชื่อมต่อ Google Sheets & สำรองข้อมูล</h2>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem; line-height: 1.6;">
+          ระบบนี้รันบนเว็บและมือถือได้โดยไม่มีค่าเช่าเซิร์ฟเวอร์ หากต้องการส่งข้อมูลจากทุกเครื่องเข้าสู่ **Google Sheets** ของโรงงานโดยอัตโนมัติ เพื่อให้เจ้าหน้าที่แต่ละส่วนกรอกพร้อมกันได้ สามารถกรอก Google Apps Script Web App URL ได้ที่นี่
+        </p>
+
+        <div class="input-group" style="margin-bottom: 20px;">
+          <label for="googleScriptUrl">Google Apps Script Web App URL:</label>
+          <div class="input-wrapper">
+            <input type="url" id="googleScriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 30px;">
+          <button class="btn-primary" id="saveSettingsBtn">
+            <i class="fa-solid fa-floppy-disk"></i> บันทึก URL การเชื่อมต่อ
+          </button>
+          <button class="btn-secondary" id="testSyncBtn">
+            <i class="fa-solid fa-rotate"></i> ทดสอบ Sync เข้า Google Sheets
+          </button>
+        </div>
+
+        <hr style="border-color: var(--border-color); margin-bottom: 20px;">
+
+        <h3><i class="fa-solid fa-download"></i> สำรองและกู้คืนข้อมูล Local Database</h3>
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 10px 0 16px 0;">
+          สามารถส่งออกไฟล์ JSON เพื่อย้ายข้อมูลไปเครื่องอื่น หรือกู้คืนข้อมูลได้ทันที
+        </p>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="btn-secondary" id="backupJsonBtn">
+            <i class="fa-solid fa-file-code"></i> สำรองข้อมูล (Backup JSON)
+          </button>
+          <button class="btn-secondary" id="clearDataBtn" style="color: #ef4444;">
+            <i class="fa-solid fa-trash-can"></i> ล้างข้อมูลทั้งหมด
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Script Load -->
+  <script src="app.js"></script>
+</body>
+</html>
