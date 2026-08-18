@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-18b (รายการของฉัน + แจ้งลบข้อมูล)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-18c (น้ำมันเตารายวัน + นำเข้าเครื่องกำเนิดไอน้ำ)</b></p>
 </header>
 
 <div class="wrap">
@@ -1434,11 +1434,12 @@ function renderBoiler(){
   // records (มีตัวกรองเดือน)
   const bf=document.getElementById("bRecFilter");const bfilt=bf?bf.value:"";
   let blist=[...boiler];if(bfilt)blist=blist.filter(r=>r.month===bfilt);
-  const sorted=blist.sort((a,b)=>a.month<b.month?-1:a.month>b.month?1:a.item<b.item?-1:1);
-  const rh="<tr><th>เดือน</th><th>รายการ</th><th>ชม.</th><th>น้ำมันเตา (ล.)</th><th>LPG (กก.)</th><th>ผู้บันทึก</th><th></th></tr>";
-  const rb=sorted.map(r=>`<tr><td>${thMonth(r.month)}</td><td>${r.item}</td><td>${fmt(r.hours)}</td><td>${fmt(r.liters)}</td><td>${fmt(r.lpg||0)}</td><td>${r.user||"-"}</td>
+  const kof=r=>(r.date||((validYM(r.month)||"")+"-99"));
+  const sorted=blist.sort((a,b)=>{const x=kof(a),y=kof(b);return x<y?-1:x>y?1:(a.item<b.item?-1:1);});
+  const rh="<tr><th>วันที่</th><th>เดือน</th><th>รายการ</th><th>ชม.</th><th>น้ำมันเตา (ล.)</th><th>LPG (กก.)</th><th>ผู้บันทึก</th><th></th></tr>";
+  const rb=sorted.map(r=>`<tr><td>${r.date?thDate(r.date):'<span style="color:var(--muted)">รวมทั้งเดือน</span>'}</td><td>${thMonth(r.month)}</td><td>${r.item}</td><td>${fmt(r.hours)}</td><td>${fmt(r.liters)}</td><td>${fmt(r.lpg||0)}</td><td>${r.user||"-"}</td>
     <td><span class="del" onclick="bEdit('${r.id}')">แก้</span> · <span class="del" onclick="bDel('${r.id}')">ลบ</span></td></tr>`).join("")||
-    `<tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr>`;
+    `<tr><td colspan="8" class="empty">ยังไม่มีข้อมูล</td></tr>`;
   document.getElementById("bRec").innerHTML=rh+rb;
 }
 
@@ -2558,14 +2559,41 @@ document.getElementById("csvFile").onchange=async(ev)=>{
     ev.target.value="";return;
   }
 
-  if(header.includes("item") && header.includes("month")){
-    // ---- น้ำมันเตา (boiler) ----
+  if(header.includes("machine") && header.includes("date")){
+    // ---- ชั่วโมงเดินเครื่องกำเนิดไอน้ำรายวัน (machine) ----
     const rows=[];
     for(let i=1;i<lines.length;i++){
       const cells=lines[i].split(",");
       const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
-      if(!o.month||!o.item)continue;
-      rows.push({id:uid(),month:o.month,item:o.item.toUpperCase(),hours:parseFloat(o.hours)||0,liters:parseFloat(o.liters)||0});
+      if(!o.date||!o.machine)continue;
+      rows.push({id:uid(),date:o.date,month:o.month||o.date.slice(0,7),machine:o.machine,
+        t_start:norm24(o.t_start),t_end:norm24(o.t_end),hours:parseFloat(o.hours)||0,
+        fuel_type:o.fuel_type||"น้ำมันเตา",fuel_qty:parseFloat(o.fuel_qty)||0,user:o.user||"นำเข้า"});
+    }
+    const mm={};rows.forEach(r=>mm[r.month]=1);
+    const mdel=machine.filter(r=>mm[r.month]);          // เดือนเดียวกันของเดิม -> ลบทิ้ง กันซ้ำ
+    machine=machine.filter(r=>!mm[r.month]);
+    rows.forEach(r=>machine.push(r));
+    mcsave();rerenderActive();
+    toast("นำเข้าเครื่องกำเนิดไอน้ำ "+rows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
+    if(CLOUD()){try{
+      for(const r of mdel) await apiPost({sheet:"machine",op:"delete",row:{id:r.id}});
+      let dn=0;for(const r of rows){await apiPost({sheet:"machine",op:"upsert",row:r});dn++;if(dn%20===0)toast("กำลังซิงค์ "+dn+"/"+rows.length);}
+      toast("✅ นำเข้าเครื่องกำเนิดไอน้ำ+ซิงค์ "+rows.length+" แถวแล้ว");
+    }catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    ev.target.value="";return;
+  }
+
+  if(header.includes("item") && (header.includes("month")||header.includes("date"))){
+    // ---- น้ำมันเตารายโรง (boiler) · รองรับทั้งรายเดือนและรายวัน ----
+    const rows=[];
+    for(let i=1;i<lines.length;i++){
+      const cells=lines[i].split(",");
+      const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
+      const mo=o.month||(o.date||"").slice(0,7);
+      if(!mo||!o.item)continue;
+      rows.push({id:uid(),month:mo,date:o.date||"",item:o.item.toUpperCase(),
+        hours:parseFloat(o.hours)||0,liters:parseFloat(o.liters)||0,lpg:parseFloat(o.lpg)||0,user:o.user||"นำเข้า"});
     }
     const months={};rows.forEach(r=>months[r.month]=1);
     const del=boiler.filter(r=>months[r.month]);      // ของเดิมในเดือนที่นำเข้า -> ลบทิ้ง
