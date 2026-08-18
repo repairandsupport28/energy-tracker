@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-17b (ปันส่วนเป็นจำนวนเต็ม ยอดรวมตรงเป๊ะ)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-18a (แสดงวันที่ชัดเจน กันบันทึกผิดวัน)</b></p>
 </header>
 
 <div class="wrap">
@@ -461,7 +461,7 @@
             <table id="steamTable"><tr><th>โรง</th><th>เริ่ม</th><th>เลิก</th><th>ชั่วโมง</th></tr></table>
           </div>
 
-          <div class="section-title">ค) สรุปการปันส่วน (คำนวณสดขณะกรอก)</div>
+          <div class="section-title" id="allocTitle">ค) สรุปการปันส่วน (คำนวณสดขณะกรอก)</div>
           <div class="kpis">
             <div class="kpi orange"><div class="l">รวมชั่วโมงเดินเครื่อง</div><div class="v" id="machTotH">0</div><div class="u">ชม.</div></div>
             <div class="kpi orange"><div class="l">น้ำมันเตารวม</div><div class="v" id="machTotFuel">0</div><div class="u">ลิตร</div></div>
@@ -873,6 +873,11 @@ function allocate(){
   const warn=[];
   if((ph[HP_PLANT]||0)>0 && !hpRan) warn.push("⚠ "+HP_PLANT+" ใช้ไอน้ำ "+fmt(ph[HP_PLANT])+" ชม. แต่ไม่มีเครื่อง HP (No.3/No.4) เดิน — ตรวจสอบการกรอก");
   if(hpRan && (ph[HP_PLANT]||0)<=0) warn.push("⚠ เครื่อง HP เดินอยู่ แต่ยังไม่ได้กรอกเวลาที่ "+HP_PLANT+" ใช้ไอน้ำ");
+  var _dv=document.getElementById("f_steam_date");
+  if(_dv&&_dv.value){
+    var _t=new Date();var _today=_t.getFullYear()+"-"+("0"+(_t.getMonth()+1)).slice(-2)+"-"+("0"+_t.getDate()).slice(-2);
+    if(_dv.value!==_today) warn.push("ℹ กำลังบันทึกข้อมูลของวันที่ "+thDate(_dv.value)+" (ไม่ใช่วันนี้) — ถ้าไม่ตั้งใจ กรุณาแก้ช่องวันที่ด้านบน");
+  }
   if(fuelLP+lpgLP>0 && lpBase<=0) warn.push("⚠ มีเชื้อเพลิงจากเครื่อง LP แต่ยังไม่ได้กรอกเวลาโรงที่ใช้ไอน้ำ (ยกเว้น "+HP_PLANT+") — เชื้อเพลิงจะยังไม่ถูกปันส่วน");
   return {mh:mh,mq:mq,totH:totH,fuelHP:fuelHP,fuelLP:fuelLP,lpgLP:lpgLP,ph:ph,plantTot:plantTot,alloc:alloc,hpRan:hpRan,lpBase:lpBase,warn:warn};
 }
@@ -901,6 +906,13 @@ function steamHours(code){
 }
 function renderSteamCalc(){
   var A=allocate();
+  // แสดงวันที่ที่กำลังจะบันทึกให้เห็นชัด กันกรอกผิดวัน
+  var ttl=document.getElementById("allocTitle"), dv=document.getElementById("f_steam_date");
+  if(ttl&&dv){
+    var d=dv.value;
+    ttl.innerHTML='ค) สรุปการปันส่วน — ข้อมูลของวันที่ '+
+      (d?'<span style="color:#b45309;background:#fffbeb;padding:1px 10px;border-radius:6px">'+thDate(d)+'</span>':'<span style="color:#b91c1c">ยังไม่ได้เลือกวันที่</span>');
+  }
   MACHINES.forEach(function(m){document.getElementById("mc_"+mKey(m.id)+"_h").textContent=fmt(A.mh[m.id]);});
   PLANTS.forEach(function(p){document.getElementById("st_h_"+p[0]).textContent=fmt(A.ph[p[0]]);});
   document.getElementById("machTotH").textContent=fmt(A.totH);
@@ -965,7 +977,7 @@ function saveSteam(){
   MACHINES.forEach(function(m){var k=mKey(m.id);["_s","_e","_q"].forEach(function(x){document.getElementById("mc_"+k+x).value="";});});
   PLANTS.forEach(function(p){document.getElementById("f_st_"+p[0]+"_start").value="";document.getElementById("f_st_"+p[0]+"_end").value="";});
   renderSteamCalc();
-  toast("บันทึกแล้ว · เครื่อง "+nMach+" เครื่อง · น้ำมันเตา "+fmt(totFuel)+" ล. · LPG "+fmt(A.lpgLP)+" กก.");
+  toast("✅ บันทึกข้อมูลวันที่ "+thDate(date)+" แล้ว · เครื่อง "+nMach+" เครื่อง · น้ำมันเตา "+fmt(totFuel)+" ล. · LPG "+fmt(A.lpgLP)+" กก.");
 }
 // ตั้งวันที่วันนี้ให้ทุกกล่อง
 ["f_elec_date","f_water_date","f_steam_date"].forEach(function(id){var el=document.getElementById(id);if(el)el.valueAsDate=new Date();});
@@ -1302,6 +1314,7 @@ const BITEMS=["NC","NG","P","IMI","B","ACID"];
 // เดือนปีงบ 69: ต.ค.68 - ก.ย.69  => 2025-10 ... 2026-09
 const BMONTHS=["2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09"];
 const THMON=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function thDate(d){if(!d)return "-";var p=String(d).split("-");if(p.length<3)return d;return (+p[2])+" "+THMON[+p[1]-1]+String((+p[0]+543)%100);}
 function thMonth(ym){const s=String(ym||"");if(!/^\d{4}-\d{2}/.test(s))return s||"-";const[y,m]=s.split("-");return THMON[+m-1]+String((+y+543)%100);}
 let boiler, bstock;
 // โหลดข้อมูลจาก PDF ปีงบ 69 เป็นฐานข้อมูลตั้งต้นอัตโนมัติ (ครั้งแรก)
