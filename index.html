@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-18a (แสดงวันที่ชัดเจน กันบันทึกผิดวัน)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-18b (รายการของฉัน + แจ้งลบข้อมูล)</b></p>
 </header>
 
 <div class="wrap">
@@ -99,6 +99,8 @@
     <button class="tab active" data-tab="elecmon">⚡ ไฟฟ้า</button>
     <button class="tab" data-tab="water">💧 น้ำประปา–สารเคมี</button>
     <button class="tab" data-tab="boiler">🔥 ไอน้ำ–เชื้อเพลิง</button>
+    <button class="tab" data-tab="mine">📋 รายการของฉัน</button>
+    <button class="tab" data-tab="delreq" id="tabDelreq">🔔 คำขอลบข้อมูล</button>
     <button class="tab" data-tab="records">📋 รายการบันทึก</button>
     <button class="tab" data-tab="exec">🏢 ภาพรวมผู้บริหาร</button>
     <button class="tab" data-tab="status">🕓 สถานะการบันทึก</button>
@@ -341,6 +343,39 @@
         <button type="button" class="btn btn-ghost" onclick="openReportPrint()">🖨 พิมพ์รายงาน (HTML)</button>
         <button type="button" class="btn btn-ghost" onclick="exportReportDocx()">⬇ ดาวน์โหลด .docx</button>
       </div>
+    </div>
+  </section>
+
+  <!-- MY RECORDS -->
+  <section id="tab-mine" style="display:none">
+    <div class="card">
+      <h2>รายการที่ฉันบันทึก</h2>
+      <div class="src">แสดงเฉพาะรายการที่บันทึกด้วยชื่อผู้ใช้ของท่าน · หากกรอกผิดให้กด <b>⚠ แจ้งลบ</b> แล้วหัวหน้า/ผู้ดูแลจะพิจารณาให้</div>
+      <div class="controls">
+        <div><label>ประเภท</label><select id="mineType" onchange="renderMine()">
+          <option value="">ทั้งหมด</option><option value="machine">เครื่องกำเนิดไอน้ำ</option>
+          <option value="boiler">น้ำมันเตา/ไอน้ำรายโรง</option><option value="water">น้ำประปา</option>
+          <option value="elecmonth">มิเตอร์ไฟฟ้า</option><option value="records">บันทึกรายวันอื่นๆ</option></select></div>
+        <div><label>ค้นหาวันที่</label><input type="date" id="mineDate" onchange="renderMine()"></div>
+        <div><button class="btn btn-ghost btn-sm" onclick="document.getElementById('mineDate').value='';renderMine()">ล้างตัวกรอง</button></div>
+      </div>
+      <div class="kpis" id="mineKpis"></div>
+      <div class="table-scroll"><table id="mineTable"></table></div>
+    </div>
+  </section>
+
+  <!-- DELETE REQUESTS -->
+  <section id="tab-delreq" style="display:none">
+    <div class="card">
+      <h2>คำขอลบข้อมูล</h2>
+      <div class="src">เจ้าหน้าที่แจ้งว่ากรอกผิด · ผู้ดูแลระบบและหัวหน้าแผนกกดอนุมัติลบได้ · ทุกการลบถูกบันทึกประวัติไว้ตรวจสอบ</div>
+      <div class="controls">
+        <div><label>สถานะ</label><select id="drFilter" onchange="renderDelreq()">
+          <option value="pending">รอพิจารณา</option><option value="">ทั้งหมด</option>
+          <option value="deleted">ลบแล้ว</option><option value="rejected">ปฏิเสธ</option></select></div>
+      </div>
+      <div class="kpis" id="drKpis"></div>
+      <div class="table-scroll"><table id="drTable"></table></div>
     </div>
   </section>
 
@@ -690,7 +725,7 @@ async function pingCloud(){
 }
 function pushStock(st){if(CLOUD())apiPost({sheet:"config",op:"stock",row:st}).catch(()=>{});}
 function rerenderActive(){const a=document.querySelector(".tab.active");if(!a)return;const t=a.dataset.tab;
-  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();renderBoilerFlex();renderMachine();renderSteamCalc();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();}
+  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();renderBoilerFlex();renderMachine();renderSteamCalc();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();else if(t==="mine")renderMine();else if(t==="delreq")renderDelreq();}
 async function refreshFromCloud(force){
   try{
     const d=await apiGet();
@@ -704,8 +739,9 @@ async function refreshFromCloud(force){
         elecmonth=pick(d.elecmonth,elecmonth);report=pick(d.report,report);water=pick(d.water,water);
         if(d.stock)bstock=d.stock;
         if(d.loginlog)loginlog=d.loginlog;
+        if(d.delreq)delreq=d.delreq;
         machine=pick(d.machine,machine);
-        save();bsave();stsave();emsave();rpsave();wsave();lgsave();mcsave();rerenderActive();
+        save();bsave();stsave();emsave();rpsave();wsave();lgsave();mcsave();drsave();updateDrBadge();rerenderActive();
       }
       return true;
     }
@@ -714,11 +750,11 @@ async function refreshFromCloud(force){
 }
 
 // ---- โหมด + แท็บ ----
-const ALLTABS=["elecmon","water","boiler","report","records","exec","status","summary"];
+const ALLTABS=["elecmon","water","boiler","report","records","mine","delreq","exec","status","summary"];
 // แท็บที่แสดงในแต่ละโหมด
 const MODETABS={
-  entry:["elecmon","water","boiler","records","report"],
-  view:["exec","status","elecmon","water","boiler","summary","report"]
+  entry:["elecmon","water","boiler","mine","delreq","records","report"],
+  view:["exec","status","elecmon","water","boiler","summary","report","mine","delreq"]
 };
 let curMode="entry";
 function openTab(t){
@@ -735,6 +771,8 @@ function openTab(t){
   if(t==="water"){renderWater();renderChem();}
   if(t==="exec")renderExec();
   if(t==="status")renderStatus();
+  if(t==="mine")renderMine();
+  if(t==="delreq")renderDelreq();
 }
 function setMode(m){
   curMode=m;
@@ -2009,6 +2047,131 @@ document.getElementById("btnBfCsv").onclick=function(){
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="boiler_"+mode+"_"+field+".csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
 };
 
+/* ============ รายการของฉัน + ระบบแจ้งลบข้อมูล ============ */
+const DRKEY="agri_delreq_v1";
+let delreq=JSON.parse(localStorage.getItem(DRKEY)||"[]");
+function drsave(){localStorage.setItem(DRKEY,JSON.stringify(delreq));}
+const MINESRC=[
+  {k:"machine",  label:"เครื่องกำเนิดไอน้ำ", get:()=>machine,   date:r=>r.date,
+   sum:r=>r.machine+" · "+fmt(r.hours)+" ชม. · "+(r.fuel_type||"")+" "+fmt(r.fuel_qty||0)},
+  {k:"boiler",   label:"ไอน้ำรายโรง",        get:()=>boiler,    date:r=>r.date||((validYM(r.month)||"")+"-01"),
+   sum:r=>r.item+" · "+fmt(r.hours)+" ชม. · น้ำมันเตา "+fmt(r.liters||0)+" ล."+((+r.lpg)?" · LPG "+fmt(r.lpg):"")},
+  {k:"water",    label:"น้ำประปา",           get:()=>water,     date:r=>r.date,
+   sum:r=>"ผลิตน้ำ "+fmt(r.produced||0)+" ลบ.ม. · สารส้ม "+fmt(r.alum||0)+" กก."},
+  {k:"elecmonth",label:"มิเตอร์ไฟฟ้า",        get:()=>elecmonth, date:r=>(validYM(r.month)||"")+"-01",
+   sum:r=>r.station+" · "+fmt(r.usage||0)+" MWh ("+thMonth(r.month)+")"},
+  {k:"records",  label:"บันทึกรายวันอื่นๆ",   get:()=>records,   date:r=>r.date,
+   sum:r=>FIELDS.filter(f=>(+r[f[0]]||0)>0).map(f=>f[1]+" "+fmt(r[f[0]])).join(" · ")||"—"}
+];
+function myName(){return currentUser?currentUser.username:"";}
+function isMine(r){const me=myName();return me&&(String(r.updated_by||"")===me||String(r.user||"")===me);}
+function reqStatus(sheet,id){
+  const d=delreq.filter(x=>x.target_sheet===sheet&&String(x.target_id)===String(id))
+                .sort((a,b)=>String(b.requested_at).localeCompare(String(a.requested_at)))[0];
+  return d?d.status:"";
+}
+function renderMine(){
+  const tEl=document.getElementById("mineType"), dEl=document.getElementById("mineDate");
+  const ft=tEl?tEl.value:"", fd=dEl?dEl.value:"";
+  let rows=[];
+  MINESRC.forEach(function(s){
+    if(ft&&ft!==s.k)return;
+    (s.get()||[]).forEach(function(r){
+      if(!isMine(r))return;
+      const d=s.date(r)||"";
+      if(fd&&d.slice(0,10)!==fd)return;
+      rows.push({sheet:s.k,label:s.label,id:r.id,date:d,sum:s.sum(r),at:r.updated_at||"",st:reqStatus(s.k,r.id)});
+    });
+  });
+  rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const pend=rows.filter(r=>r.st==="pending").length;
+  document.getElementById("mineKpis").innerHTML=
+    '<div class="kpi cyan"><div class="l">รายการทั้งหมดของฉัน</div><div class="v">'+rows.length+'</div><div class="u">รายการ</div></div>'+
+    '<div class="kpi orange"><div class="l">รอหัวหน้าพิจารณาลบ</div><div class="v">'+pend+'</div><div class="u">รายการ</div></div>'+
+    '<div class="kpi green"><div class="l">ผู้ใช้</div><div class="v" style="font-size:19px">'+(myName()||"-")+'</div><div class="u">ชื่อที่ใช้บันทึก</div></div>';
+  const head='<tr><th>วันที่ข้อมูล</th><th>ประเภท</th><th>รายละเอียด</th><th>บันทึกเมื่อ</th><th>สถานะ</th><th></th></tr>';
+  const body=rows.map(function(r){
+    let st='<span style="color:#16a34a;font-weight:700">ปกติ</span>',btn='<button class="btn btn-ghost btn-sm" onclick="askDelete(\''+r.sheet+'\',\''+r.id+'\',\''+r.date+'\')">⚠ แจ้งลบ</button>';
+    if(r.st==="pending"){st='<span style="color:#b45309;font-weight:700">รอพิจารณา</span>';btn='<span style="color:var(--muted);font-size:12px">ส่งคำขอแล้ว</span>';}
+    else if(r.st==="rejected"){st='<span style="color:#b91c1c;font-weight:700">คำขอถูกปฏิเสธ</span>';}
+    return '<tr><td>'+(r.date?thDate(r.date):"-")+'</td><td>'+r.label+'</td>'+
+      '<td style="text-align:left">'+r.sum+'</td><td style="font-size:12px">'+(r.at||"-")+'</td>'+
+      '<td>'+st+'</td><td>'+btn+'</td></tr>';
+  }).join("")||'<tr><td colspan="6" class="empty">ยังไม่มีรายการที่บันทึกด้วยชื่อผู้ใช้นี้</td></tr>';
+  document.getElementById("mineTable").innerHTML=head+body;
+}
+function askDelete(sheet,id,date){
+  const s=MINESRC.find(x=>x.k===sheet);if(!s)return;
+  const r=(s.get()||[]).find(x=>String(x.id)===String(id));if(!r)return;
+  const reason=prompt("แจ้งลบรายการวันที่ "+thDate(date)+"\n"+s.sum(r)+"\n\nกรุณาระบุเหตุผล (เช่น กรอกผิดวัน / กรอกซ้ำ):","");
+  if(reason===null)return;
+  if(!reason.trim()){toast("กรุณาระบุเหตุผล");return;}
+  const now=new Date(),p=n=>String(n).padStart(2,"0");
+  const rec={id:uid(),target_sheet:sheet,target_id:String(id),data_date:date,summary:s.sum(r),
+    reason:reason.trim(),requested_by:myName(),
+    requested_at:now.getFullYear()+"-"+p(now.getMonth()+1)+"-"+p(now.getDate())+" "+p(now.getHours())+":"+p(now.getMinutes())+":"+p(now.getSeconds()),
+    status:"pending",handled_by:"",handled_at:""};
+  delreq.push(rec);drsave();renderMine();
+  if(CLOUD())apiPost({sheet:"delreq",op:"request",row:rec}).then(res=>warnCloud(res,"ส่งคำขอลบ")).catch(()=>{});
+  toast("ส่งคำขอลบแล้ว รอหัวหน้า/ผู้ดูแลพิจารณา");
+}
+function canApprove(){const r=currentUser?currentUser.role:"";return ["admin","head_elec","head_mech"].indexOf(r)>=0;}
+function updateDrBadge(){
+  const b=document.getElementById("tabDelreq");if(!b)return;
+  const n=delreq.filter(x=>(x.status||"pending")==="pending").length;
+  b.textContent="🔔 คำขอลบข้อมูล"+(n?" ("+n+")":"");
+  b.style.color=n?"#b45309":"";
+}
+function renderDelreq(){
+  updateDrBadge();
+  const f=document.getElementById("drFilter");const fs=f?f.value:"pending";
+  let list=delreq.slice().sort((a,b)=>String(b.requested_at).localeCompare(String(a.requested_at)));
+  if(fs)list=list.filter(x=>(x.status||"pending")===fs);
+  const pend=delreq.filter(x=>(x.status||"pending")==="pending").length;
+  document.getElementById("drKpis").innerHTML=
+    '<div class="kpi orange"><div class="l">รอพิจารณา</div><div class="v">'+pend+'</div><div class="u">คำขอ</div></div>'+
+    '<div class="kpi"><div class="l">ลบแล้ว</div><div class="v">'+delreq.filter(x=>x.status==="deleted").length+'</div><div class="u">รายการ</div></div>'+
+    '<div class="kpi"><div class="l">ปฏิเสธ</div><div class="v">'+delreq.filter(x=>x.status==="rejected").length+'</div><div class="u">รายการ</div></div>';
+  const head='<tr><th>ผู้ขอ</th><th>วันที่ข้อมูล</th><th>รายการ</th><th>เหตุผล</th><th>ขอเมื่อ</th><th>สถานะ</th><th></th></tr>';
+  const body=list.map(function(x){
+    const st=x.status||"pending";
+    let stTxt='<span style="color:#b45309;font-weight:700">รอพิจารณา</span>';
+    if(st==="deleted")stTxt='<span style="color:#16a34a;font-weight:700">ลบแล้ว</span><br><span style="font-size:11px;color:var(--muted)">โดย '+(x.handled_by||"-")+'</span>';
+    if(st==="rejected")stTxt='<span style="color:#b91c1c;font-weight:700">ปฏิเสธ</span><br><span style="font-size:11px;color:var(--muted)">โดย '+(x.handled_by||"-")+'</span>';
+    let act='—';
+    if(st==="pending"&&canApprove())
+      act='<button class="btn btn-danger btn-sm" onclick="handleReq(\''+x.id+'\',1)">🗑 อนุมัติลบ</button> '+
+          '<button class="btn btn-ghost btn-sm" onclick="handleReq(\''+x.id+'\',0)">✖ ปฏิเสธ</button>';
+    else if(st==="pending")act='<span style="font-size:12px;color:var(--muted)">รอผู้มีสิทธิ์</span>';
+    return '<tr><td style="text-align:left">'+(x.requested_by||"-")+'</td><td>'+(x.data_date?thDate(x.data_date):"-")+'</td>'+
+      '<td style="text-align:left">'+(x.summary||"-")+'</td><td style="text-align:left">'+(x.reason||"-")+'</td>'+
+      '<td style="font-size:12px">'+(x.requested_at||"-")+'</td><td>'+stTxt+'</td><td>'+act+'</td></tr>';
+  }).join("")||'<tr><td colspan="7" class="empty">ไม่มีคำขอในสถานะนี้</td></tr>';
+  document.getElementById("drTable").innerHTML=head+body;
+}
+function handleReq(reqId,approve){
+  if(!canApprove()){toast("ไม่มีสิทธิ์อนุมัติ");return;}
+  const x=delreq.find(r=>String(r.id)===String(reqId));if(!x)return;
+  const msg=approve?("ยืนยันลบข้อมูลนี้?\n\n"+x.summary+"\nวันที่ "+thDate(x.data_date)+"\nผู้ขอ: "+x.requested_by+"\nเหตุผล: "+x.reason)
+                   :("ปฏิเสธคำขอลบนี้?\n\n"+x.summary);
+  if(!confirm(msg))return;
+  const now=new Date(),p=n=>String(n).padStart(2,"0");
+  x.handled_by=myName();
+  x.handled_at=now.getFullYear()+"-"+p(now.getMonth()+1)+"-"+p(now.getDate())+" "+p(now.getHours())+":"+p(now.getMinutes())+":"+p(now.getSeconds());
+  if(approve){
+    x.status="deleted";
+    // ลบข้อมูลจริงในเครื่อง
+    if(x.target_sheet==="machine")machine=machine.filter(r=>String(r.id)!==String(x.target_id)),mcsave();
+    else if(x.target_sheet==="boiler")boiler=boiler.filter(r=>String(r.id)!==String(x.target_id)),bsave();
+    else if(x.target_sheet==="water")water=water.filter(r=>String(r.id)!==String(x.target_id)),wsave();
+    else if(x.target_sheet==="elecmonth")elecmonth=elecmonth.filter(r=>String(r.id)!==String(x.target_id)),emsave();
+    else if(x.target_sheet==="records")records=records.filter(r=>String(r.id)!==String(x.target_id)),save();
+  }else x.status="rejected";
+  drsave();renderDelreq();rerenderActive();
+  if(CLOUD())apiPost({sheet:"delreq",op:approve?"approve_delete":"reject_delete",row:x}).then(res=>warnCloud(res,"อนุมัติคำขอลบ")).catch(()=>{});
+  toast(approve?"ลบข้อมูลแล้ว (บันทึกประวัติไว้)":"ปฏิเสธคำขอแล้ว");
+}
+
 /* ============ สถานะการบันทึกของแต่ละหน่วย ============ */
 function parseStamp(s){
   if(!s)return null;
@@ -2437,17 +2600,17 @@ document.getElementById("csvFile").onchange=async(ev)=>{
 // ===== เฟส 3: ล็อกอิน + สิทธิ์ตามบทบาท (UI-level) =====
 const SESSKEY="agri_session";
 const ROLES={
-  admin:{tabs:["elecmon","water","boiler","report","records","exec","status","summary"],boxes:["elec","water","steam"],admin:true,mode:"entry"},
-  elec:{tabs:["elecmon","exec","summary","report"],boxes:["elec"],mode:"entry"},
-  water:{tabs:["water","exec","summary"],boxes:["water"],mode:"entry"},
-  steam:{tabs:["boiler","exec","summary"],boxes:["steam"],mode:"entry"},
+  admin:{tabs:["elecmon","water","boiler","report","records","mine","delreq","exec","status","summary"],boxes:["elec","water","steam"],admin:true,mode:"entry"},
+  elec:{tabs:["elecmon","mine","exec","summary","report"],boxes:["elec"],mode:"entry"},
+  water:{tabs:["water","mine","exec","summary"],boxes:["water"],mode:"entry"},
+  steam:{tabs:["boiler","mine","exec","summary"],boxes:["steam"],mode:"entry"},
   // ผู้บริหาร/ผู้ดูอย่างเดียว: เข้าโหมดรายงานทันที ไม่เห็นปุ่มบันทึก
   viewer:{tabs:["exec","status","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true},
   // หัวหน้าแผนกไฟฟ้า — ดูอย่างเดียว เปิดมาเจอหน้าไฟฟ้าก่อน
   // หัวหน้าแผนกไฟฟ้า — ดูอย่างเดียว เปิดมาเจอหน้าไฟฟ้าก่อน (ดูข้อมูลน้ำมันเตาได้ด้วย)
-  head_elec:{tabs:["exec","status","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true,first:"elecmon",title:"หัวหน้าแผนกไฟฟ้า"},
+  head_elec:{tabs:["exec","status","delreq","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true,first:"elecmon",title:"หัวหน้าแผนกไฟฟ้า"},
   // หัวหน้าแผนกเครื่องกล — ดูอย่างเดียว เปิดมาเจอหน้าไอน้ำ–เชื้อเพลิงก่อน
-  head_mech:{tabs:["exec","status","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true,first:"boiler",title:"หัวหน้าแผนกเครื่องกล"}
+  head_mech:{tabs:["exec","status","delreq","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true,first:"boiler",title:"หัวหน้าแผนกเครื่องกล"}
 };
 let currentUser=null;
 window._users=window._users||[];
@@ -2467,7 +2630,7 @@ async function doLogin(){
   if(!role){document.getElementById("loginErr").textContent="ชื่อผู้ใช้หรือ PIN ไม่ถูกต้อง";return;}
   currentUser={username:u,role:role,pin:p};
   localStorage.setItem(SESSKEY,JSON.stringify(currentUser));
-  applyPermissions(role);
+  applyPermissions(role);updateDrBadge();
   document.getElementById("loginOverlay").style.display="none";
   pingCloud();
   pushLogin();
