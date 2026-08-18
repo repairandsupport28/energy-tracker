@@ -1,726 +1,2466 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบติดตามพลังงาน ไฟฟ้า สารเคมี และการผลิตไอน้ำ</title>
-  
-  <!-- PWA Manifest & Meta -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4f46e5">
-  <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
-  
-  <!-- Fonts & Icons -->
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Chart.js, SheetJS, html2pdf CDNs -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --line:#e2e8f0; --ink:#1e293b; --muted:#64748b;
+    --brand:#0f766e; --brand2:#0891b2; --accent:#ea580c; --ok:#16a34a; --warn:#dc2626;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Sarabun","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+  header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;
+    padding:16px 18px;box-shadow:var(--shadow);position:sticky;top:0;z-index:20}
+  header h1{margin:0;font-size:18px;font-weight:700}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.9}
+  .wrap{max-width:1050px;margin:0 auto;padding:16px}
+  .tabs{display:flex;gap:6px;margin:0 0 16px;flex-wrap:wrap}
+  .tab{flex:1;min-width:120px;text-align:center;padding:10px;border:none;border-radius:10px;
+    background:var(--card);box-shadow:var(--shadow);cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+  .tab.active{background:var(--brand);color:#fff}
+  .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 14px;font-size:16px}
+  label{display:block;font-size:13px;color:var(--muted);margin:0 0 4px;font-weight:600}
+  input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;font-size:15px;font-family:inherit;background:#fff}
+  input:focus,select:focus{outline:none;border-color:var(--brand)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .section-title{font-size:12.5px;font-weight:700;color:var(--brand);text-transform:uppercase;
+    letter-spacing:.4px;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--line)}
+  .btn{padding:11px 18px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  .btn-danger{background:#fff;color:var(--warn);border:1px solid var(--warn)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px;border-left:4px solid var(--brand)}
+  .kpi .l{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:22px;font-weight:800;margin-top:2px}
+  .kpi .u{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi.orange{border-left-color:var(--accent)}
+  .kpi.cyan{border-left-color:var(--brand2)}
+  .kpi.green{border-left-color:var(--ok)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{background:#f1f5f9;font-size:12px;color:var(--muted);position:sticky;top:0}
+  td:first-child,th:first-child{text-align:left}
+  .table-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+  .controls{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+  .controls>div{flex:1;min-width:130px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:12px 20px;border-radius:10px;box-shadow:var(--shadow);opacity:0;transition:.3s;z-index:50;font-size:14px}
+  .toast.show{opacity:1}
+  .empty{text-align:center;color:var(--muted);padding:30px;font-size:14px}
+  .hint{font-size:12.5px;color:var(--muted);background:#f0fdfa;border:1px solid #ccfbf1;padding:10px 12px;border-radius:9px;margin-bottom:14px}
+  canvas{max-height:300px}
+  .unitbox{border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;margin:14px 0}
+  .unithead{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .unittag{font-size:12px;font-weight:800;color:#fff;padding:3px 12px;border-radius:20px}
+  .u-elec{background:#0891b2}.u-water{background:#0f766e}.u-steam{background:#ea580c}
+  .unitsub{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .del{color:var(--warn);cursor:pointer;font-weight:700}
+  .src{font-size:12.5px;color:#0f766e;background:#f0fdfa;border:1px solid #ccfbf1;
+    padding:7px 11px;border-radius:8px;margin:-6px 0 12px;font-weight:600;display:inline-block}
+  .src b{color:#b45309;background:#fffbeb;padding:1px 6px;border-radius:5px}
+  .blk{font-size:13px;font-weight:800;color:#fff;background:var(--brand);display:inline-block;
+    padding:3px 12px;border-radius:20px;margin-bottom:8px}
+  .modebar{display:flex;gap:8px;margin:0 0 12px}
+  .modebtn{flex:1;padding:13px;border:none;border-radius:12px;background:#fff;box-shadow:var(--shadow);
+    cursor:pointer;font-size:15.5px;font-weight:800;color:var(--muted);font-family:inherit}
+  .modebtn.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
+  .exec-kpi{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px;border-left:5px solid var(--brand)}
+  .exec-kpi .l{font-size:13px;color:var(--muted);font-weight:700}
+  .exec-kpi .v{font-size:30px;font-weight:800;margin:2px 0;line-height:1.1}
+  .exec-kpi .u{font-size:12.5px;color:var(--muted);font-weight:600}
+  .chg{font-size:13px;font-weight:800;margin-top:4px}
+  .chg.up{color:#dc2626}.chg.down{color:#16a34a}.chg.flat{color:#64748b}
+  @media(max-width:600px){.wrap{padding:10px}.card{padding:14px}}
+</style>
 </head>
 <body>
+<header>
+  <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-15b (ACID รับ HP เท่านั้น + เตือนความสอดคล้อง)</b></p>
+</header>
 
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <div class="brand">
-        <div class="brand-icon">
-          <i class="fa-solid fa-bolt-lightning"></i>
-        </div>
-        <div class="brand-text">
-          <h1>ระบบติดตามพลังงาน ไฟฟ้า สารเคมี และการผลิตไอน้ำ</h1>
-          <p>โรงงานการซ่อมและสนับสนุน — รายงานสรุปผลรายวัน / สัปดาห์ / เดือน และ ยอดคงคลังคำนวณอัตโนมัติ</p>
-        </div>
-      </div>
-      <div class="header-controls">
-        <button class="btn-secondary" id="sampleDataBtn" title="สร้างข้อมูลตัวอย่างทดสอบระบบ">
-          <i class="fa-solid fa-dice"></i> ข้อมูลตัวอย่าง
-        </button>
-        <button class="btn-secondary" id="exportExcelBtn">
-          <i class="fa-solid fa-file-excel"></i> Export Excel
-        </button>
-        <button class="btn-primary" id="exportPdfBtn">
-          <i class="fa-solid fa-file-pdf"></i> Export PDF
-        </button>
-        <button class="theme-toggle" id="themeToggleBtn" title="เปลี่ยนธีม">
-          <i class="fa-solid fa-moon"></i>
-        </button>
-      </div>
-    </header>
-
-    <!-- Navigation Tabs -->
-    <div class="nav-tabs">
-      <button class="tab-btn active" data-tab="entryFormView">
-        <i class="fa-solid fa-pen-to-square"></i> บันทึกข้อมูลประจำวัน
-      </button>
-      <button class="tab-btn" data-tab="inventoryFormView">
-        <i class="fa-solid fa-boxes-stacked"></i> รับเข้า/ตั้งค่ายอดยกมาคลัง
-      </button>
-      <button class="tab-btn" data-tab="inventoryDashboardView">
-        <i class="fa-solid fa-chart-pie"></i> ยอดคงคลังหักลบอัตโนมัติ
-      </button>
-      <button class="tab-btn" data-tab="dailyView">
-        <i class="fa-solid fa-chart-line"></i> สรุปรายวัน
-      </button>
-      <button class="tab-btn" data-tab="weeklyView">
-        <i class="fa-solid fa-chart-column"></i> สรุปรายสัปดาห์
-      </button>
-      <button class="tab-btn" data-tab="monthlyView">
-        <i class="fa-solid fa-calendar-days"></i> สรุปรายเดือน
-      </button>
-      <button class="tab-btn" data-tab="logsView">
-        <i class="fa-solid fa-table-list"></i> ประวัติบันทึกข้อมูล
-      </button>
-      <button class="tab-btn" data-tab="settingsView">
-        <i class="fa-solid fa-gears"></i> การตั้งค่า & Sync
-      </button>
-    </div>
-
-    <!-- Top KPI Cards -->
-    <div class="kpi-grid">
-      <div class="kpi-card solar">
-        <div class="kpi-title"><i class="fa-solid fa-sun"></i> ไฟฟ้าผลิตได้ (Solar)</div>
-        <div class="kpi-value" id="kpiSolarTotal">0 <span style="font-size: 1rem;">kWh</span></div>
-        <div class="kpi-sub">Solar Rooftop + Solar Farm</div>
-      </div>
-      <div class="kpi-card electricity">
-        <div class="kpi-title"><i class="fa-solid fa-plug"></i> ใช้ไฟฟ้า PEA รวม</div>
-        <div class="kpi-value" id="kpiElectricTotal">0 <span style="font-size: 1rem;">kWh</span></div>
-        <div class="kpi-sub">ณ กรง.ฯ + ณ โรงสูบน้ำแม่น้ำ</div>
-      </div>
-      <div class="kpi-card chemical">
-        <div class="kpi-title"><i class="fa-solid fa-flask"></i> สารเคมีเบิกใช้รวม</div>
-        <div class="kpi-value" id="kpiChemTotal">0 <span style="font-size: 1rem;">kg</span></div>
-        <div class="kpi-sub">สารส้ม + ปูนขาว + น้ำตาล</div>
-      </div>
-      <div class="kpi-card steam">
-        <div class="kpi-title"><i class="fa-solid fa-industry"></i> ชั่วโมงไอน้ำ (6 โรง)</div>
-        <div class="kpi-value" id="kpiSteamHoursTotal">0 <span style="font-size: 1rem;">ชม.</span></div>
-        <div class="kpi-sub">NC, NG, P, IMI, B, ACID</div>
-      </div>
-      <div class="kpi-card fuel">
-        <div class="kpi-title"><i class="fa-solid fa-boxes-stacked"></i> ยอดคงคลังหักลบสุทธิ</div>
-        <div class="kpi-value" id="kpiInventorySummary">0 <span style="font-size: 1rem;">รายการ</span></div>
-        <div class="kpi-sub" id="kpiInventoryDetail">สารส้ม / ปูนขาว / น้ำมันเตา / LPG</div>
-      </div>
-    </div>
-
-    <!-- TAB 1: DAILY USAGE ENTRY FORM VIEW -->
-    <div class="view-content active" id="entryFormView">
-      <div class="form-card">
-        <div class="form-header">
-          <h2><i class="fa-solid fa-file-signature text-accent"></i> แบบฟอร์มบันทึกการใช้ประจำวัน (แยกบันทึกอิสระตามส่วนงาน)</h2>
-          <div class="input-group" style="margin-bottom:0; min-width: 220px;">
-            <label for="recordDate">วันที่และเวลาบันทึก:</label>
-            <div class="input-wrapper">
-              <input type="datetime-local" id="recordDate" required>
-            </div>
-          </div>
-        </div>
-
-        <form id="trackingForm">
-          <div class="section-grid">
-            
-            <!-- 1. Electricity Section with Updated Labels -->
-            <div class="form-section">
-              <div class="section-title electricity-icon">
-                <i class="fa-solid fa-bolt"></i> 1. ส่วนไฟฟ้า (Electricity)
-              </div>
-              <div class="input-group">
-                <label for="solarRooftop">ปริมาณผลิตไฟ: Solar Rooftop</label>
-                <div class="input-wrapper">
-                  <input type="number" id="solarRooftop" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kWh</span>
-                </div>
-              </div>
-              <div class="input-group">
-                <label for="solarFarm">ปริมาณผลิตไฟ: Solar Farm</label>
-                <div class="input-wrapper">
-                  <input type="number" id="solarFarm" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kWh</span>
-                </div>
-              </div>
-              <div class="input-group">
-                <label for="useKrong">ปริมาณใช้ไฟฟ้า: ใช้ไฟฟ้าPEA ณ กรง.ฯ</label>
-                <div class="input-wrapper">
-                  <input type="number" id="useKrong" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kWh</span>
-                </div>
-              </div>
-              <div class="input-group">
-                <label for="useWaterPump">ปริมาณใช้ไฟฟ้า: ใช้ไฟฟ้าPEA ณ โรงสูบน้ำแม่น้ำ</label>
-                <div class="input-wrapper">
-                  <input type="number" id="useWaterPump" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kWh</span>
-                </div>
-              </div>
-              
-              <div class="input-group" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
-                <label for="electricRecorder" style="color: #60a5fa; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> ผู้บันทึกส่วนไฟฟ้า:</label>
-                <div class="input-wrapper">
-                  <input type="text" id="electricRecorder" placeholder="เช่น นายวิชัย (ช่างไฟฟ้า)">
-                </div>
-              </div>
-              <div class="input-group">
-                <label for="electricNotes" style="color: #93c5fd;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุ/ข้อสังเกต (ส่วนไฟฟ้า):</label>
-                <div class="input-wrapper">
-                  <input type="text" id="electricNotes" placeholder="เช่น สภาพแดดดี / ล้างแผงโซลาร์">
-                </div>
-              </div>
-
-              <!-- Independent Save Button for Electricity Section -->
-              <div style="margin-top: 16px;">
-                <button type="button" class="btn-section-save electricity-btn" onclick="saveSection('electricity')">
-                  <i class="fa-solid fa-bolt"></i> บันทึกเฉพาะส่วนไฟฟ้า
-                </button>
-              </div>
-            </div>
-
-            <!-- 2. Water Treatment Chemical Usage Section -->
-            <div class="form-section">
-              <div class="section-title chemical-icon">
-                <i class="fa-solid fa-vial-circle-check"></i> 2. ส่วนผลิตน้ำประปา / สารเคมี (ปริมาณที่ใช้ประจำวัน)
-              </div>
-              <div class="input-group">
-                <label for="chemAlum">สารส้ม ALUM (ปริมาณที่ใช้)</label>
-                <div class="input-wrapper">
-                  <input type="number" id="chemAlum" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kg</span>
-                </div>
-                <small style="color: var(--accent-chemical);" id="liveStockAlum">คงคลังหลังหักลบ: - kg</small>
-              </div>
-              <div class="input-group">
-                <label for="chemCaOH">ปูนขาว CaOH₂ (ปริมาณที่ใช้)</label>
-                <div class="input-wrapper">
-                  <input type="number" id="chemCaOH" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kg</span>
-                </div>
-                <small style="color: var(--accent-chemical);" id="liveStockCaOH">คงคลังหลังหักลบ: - kg</small>
-              </div>
-              <div class="input-group">
-                <label for="chemSugar">น้ำตาล Sugar (ปริมาณที่ใช้)</label>
-                <div class="input-wrapper">
-                  <input type="number" id="chemSugar" step="0.01" min="0" placeholder="0.00">
-                  <span class="unit-tag">kg</span>
-                </div>
-                <small style="color: var(--accent-chemical);" id="liveStockSugar">คงคลังหลังหักลบ: - kg</small>
-              </div>
-              
-              <div class="input-group" style="margin-top: 25px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
-                <label for="chemRecorder" style="color: #34d399; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> ผู้บันทึกส่วนผลิตน้ำประปา:</label>
-                <div class="input-wrapper">
-                  <input type="text" id="chemRecorder" placeholder="เช่น นายอนันต์ (จนท.ประปา)">
-                </div>
-              </div>
-              <div class="input-group">
-                <label for="chemNotes" style="color: #6ee7b7;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุ/ข้อสังเกต (ส่วนน้ำประปา):</label>
-                <div class="input-wrapper">
-                  <input type="text" id="chemNotes" placeholder="เช่น ความขุ่นน้ำดิบปกติ / เติมสารส้มถัง A">
-                </div>
-              </div>
-
-              <!-- Independent Save Button for Chemical Section -->
-              <div style="margin-top: 16px;">
-                <button type="button" class="btn-section-save chemical-btn" onclick="saveSection('chemical')">
-                  <i class="fa-solid fa-flask"></i> บันทึกเฉพาะส่วนผลิตน้ำประปา (หักลบคลังอัตโนมัติ)
-                </button>
-              </div>
-            </div>
-
-            <!-- 3. Steam Fuel & Plant Operating Times Combined Section -->
-            <div class="form-section" style="grid-column: span 2;">
-              <div class="section-title steam-icon">
-                <i class="fa-solid fa-smog"></i> 3. ส่วนผลิตไอน้ำ & เชื้อเพลิง (เวลาการทำงาน 6 โรงงาน + เชื้อเพลิงที่ใช้)
-              </div>
-              
-              <!-- Plant Grid -->
-              <div class="plant-grid" style="margin-bottom: 16px;">
-                <!-- Plant NC -->
-                <div class="plant-item">
-                  <div class="plant-name">
-                    <span>NC (โรงงานผลิตไนโตรเซลลูโลส)</span>
-                    <span class="plant-hours-calc" id="calcNcHours">0 ชม.</span>
-                  </div>
-                  <div class="time-range">
-                    <input type="time" id="ncStart">
-                    <span class="time-sep">ถึง</span>
-                    <input type="time" id="ncEnd">
-                  </div>
-                </div>
-
-                <!-- Plant NG -->
-                <div class="plant-item">
-                  <div class="plant-name">
-                    <span>NG (โรงงานผลิตไนโตรกลีเซอรีน)</span>
-                    <span class="plant-hours-calc" id="calcNgHours">0 ชม.</span>
-                  </div>
-                  <div class="time-range">
-                    <input type="time" id="ngStart">
-                    <span class="time-sep">ถึง</span>
-                    <input type="time" id="ngEnd">
-                  </div>
-                </div>
-
-                <!-- Plant P -->
-                <div class="plant-item">
-                  <div class="plant-name">
-                    <span>P (โรงงานผลิตดินส่งกระสุน)</span>
-                    <span class="plant-hours-calc" id="calcPHours">0 ชม.</span>
-                  </div>
-                  <div class="time-range">
-                    <input type="time" id="pStart">
-                    <span class="time-sep">ถึง</span>
-                    <input type="time" id="pEnd">
-                  </div>
-                </div>
-
-                <!-- Plant IMI -->
-                <div class="plant-item">
-                  <div class="plant-name">
-                    <span>IMI (ดินส่งกระสุนเครื่องยิงลูกระเบิด)</span>
-                    <span class="plant-hours-calc" id="calcImiHours">0 ชม.</span>
-                  </div>
-                  <div class="time-range">
-                    <input type="time" id="imiStart">
-                    <span class="time-sep">ถึง</span>
-                    <input type="time" id="imiEnd">
-                  </div>
-                </div>
-
-                <!-- Plant B -->
-                <div class="plant-item">
-                  <div class="plant-name">
-                    <span>B (โรงงานผลิตดินกระสุนเม็ดกลม)</span>
-                    <span class="plant-hours-calc" id="calcBHours">0 ชม.</span>
-                  </div>
-                  <div class="time-range">
-                    <input type="time" id="bStart">
-                    <span class="time-sep">ถึง</span>
-                    <input type="time" id="bEnd">
-                  </div>
-                </div>
-
-                <!-- Plant ACID -->
-                <div class="plant-item">
-                  <div class="plant-name">
-                    <span>ACID (โรงงานผลิตกรดและอีเธอร์)</span>
-                    <span class="plant-hours-calc" id="calcAcidHours">0 ชม.</span>
-                  </div>
-                  <div class="time-range">
-                    <input type="time" id="acidStart">
-                    <span class="time-sep">ถึง</span>
-                    <input type="time" id="acidEnd">
-                  </div>
-                </div>
-              </div>
-
-              <!-- Fuel Fields -->
-              <div class="section-grid" style="margin-bottom: 12px;">
-                <div class="input-group">
-                  <label for="fuelOil">น้ำมันเตาที่ใช้รวม</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="fuelOil" step="0.01" min="0" placeholder="0.00">
-                    <span class="unit-tag">ลิตร</span>
-                  </div>
-                  <small style="color: #f87171;" id="liveStockFuelOil">คงคลังหลังหักลบ: - ลิตร</small>
-                </div>
-                <div class="input-group">
-                  <label for="fuelLPG">แก๊ส LPG ที่ใช้รวม</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="fuelLPG" step="0.01" min="0" placeholder="0.00">
-                    <span class="unit-tag">kg</span>
-                  </div>
-                  <small style="color: #f87171;" id="liveStockFuelLPG">คงคลังหลังหักลบ: - kg</small>
-                </div>
-              </div>
-
-              <!-- Dedicated Recorder & Notes for Steam & Fuel Section -->
-              <div class="section-grid" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-color); margin-bottom: 0;">
-                <div class="input-group">
-                  <label for="steamRecorder" style="color: #f472b6; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> ผู้บันทึกส่วนผลิตไอน้ำและเชื้อเพลิง:</label>
-                  <div class="input-wrapper">
-                    <input type="text" id="steamRecorder" placeholder="เช่น นายธีรเดช (จนท.ไอน้ำ)">
-                  </div>
-                </div>
-                <div class="input-group">
-                  <label for="steamNotes" style="color: #fbcfe8;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุ/ข้อสังเกต (ส่วนไอน้ำ&เชื้อเพลิง):</label>
-                  <div class="input-wrapper">
-                    <input type="text" id="steamNotes" placeholder="เช่น ซ่อมบำรุงวาล์วโรง NC / แรงดันปกติ">
-                  </div>
-                </div>
-              </div>
-
-              <!-- Independent Save Button for Steam & Fuel Section -->
-              <div style="margin-top: 16px;">
-                <button type="button" class="btn-section-save steam-btn" onclick="saveSection('steam')">
-                  <i class="fa-solid fa-industry"></i> บันทึกเฉพาะส่วนผลิตไอน้ำและเชื้อเพลิง (หักลบคลังอัตโนมัติ)
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-
-          <div class="form-actions">
-            <button type="reset" class="btn-secondary">
-              <i class="fa-solid fa-rotate-left"></i> ล้างข้อมูล
-            </button>
-            <button type="submit" class="btn-primary">
-              <i class="fa-solid fa-floppy-disk"></i> บันทึกรวมทุกส่วนงานพร้อมกัน
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- TAB 2: STANDALONE INVENTORY BASELINE / REFILL FORM -->
-    <div class="view-content" id="inventoryFormView">
-      <div class="form-card">
-        <div class="form-header">
-          <h2><i class="fa-solid fa-boxes-stacked text-accent"></i> ตั้งค่ายอดยกมา / รับเข้าคลัง (สำหรับคำนวณหักลบอัตโนมัติ)</h2>
-          <div class="input-group" style="margin-bottom:0; min-width: 220px;">
-            <label for="inventoryDate">วันที่ปรับปรุงยอดคลัง:</label>
-            <div class="input-wrapper">
-              <input type="datetime-local" id="inventoryDate" required>
-            </div>
-          </div>
-        </div>
-
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
-          เจ้าหน้าที่สามารถตั้งค่ายอดยกมา หรือกรอกยอดรับเข้าคลังใหม่ได้ที่นี่ ระบบจะนำยอดนี้ไป <strong>คำนวณหักลบกับปริมาณการใช้ประจำวันให้อัตโนมัติ</strong> เพื่อแสดงยอดคงเหลือสุทธิ
-        </p>
-
-        <div class="section-grid">
-          <!-- Chemical Inventory Stock -->
-          <div class="form-section">
-            <div class="section-title chemical-icon">
-              <i class="fa-solid fa-flask"></i> 📦 ตั้งค่ายอดยกมา/รับเข้า สารเคมีผลิตน้ำประปา
-            </div>
-            <div class="input-group">
-              <label for="baseStockAlum" style="color: #34d399;">ยอดยกมา/รับเข้า สารส้ม (ALUM):</label>
-              <div class="input-wrapper">
-                <input type="number" id="baseStockAlum" step="0.01" min="0" placeholder="เช่น 2000.00">
-                <span class="unit-tag">kg</span>
-              </div>
-            </div>
-            <div class="input-group">
-              <label for="baseStockCaOH" style="color: #34d399;">ยอดยกมา/รับเข้า ปูนขาว (CaOH₂):</label>
-              <div class="input-wrapper">
-                <input type="number" id="baseStockCaOH" step="0.01" min="0" placeholder="เช่น 1500.00">
-                <span class="unit-tag">kg</span>
-              </div>
-            </div>
-            <div class="input-group">
-              <label for="baseStockSugar" style="color: #34d399;">ยอดยกมา/รับเข้า น้ำตาล (Sugar):</label>
-              <div class="input-wrapper">
-                <input type="number" id="baseStockSugar" step="0.01" min="0" placeholder="เช่น 500.00">
-                <span class="unit-tag">kg</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Fuel Inventory Stock -->
-          <div class="form-section">
-            <div class="section-title fuel-icon">
-              <i class="fa-solid fa-gas-pump"></i> ⛽ ตั้งค่ายอดยกมา/รับเข้า เชื้อเพลิงผลิตไอน้ำ
-            </div>
-            <div class="input-group">
-              <label for="baseStockFuelOil" style="color: #ef4444;">ยอดยกมา/รับเข้า น้ำมันเตา:</label>
-              <div class="input-wrapper">
-                <input type="number" id="baseStockFuelOil" step="0.01" min="0" placeholder="เช่น 20000.00">
-                <span class="unit-tag">ลิตร</span>
-              </div>
-            </div>
-            <div class="input-group">
-              <label for="baseStockFuelLPG" style="color: #ef4444;">ยอดยกมา/รับเข้า แก๊ส LPG:</label>
-              <div class="input-wrapper">
-                <input type="number" id="baseStockFuelLPG" step="0.01" min="0" placeholder="เช่น 5000.00">
-                <span class="unit-tag">kg</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Inventory Recorder & Inventory Notes -->
-        <div class="section-grid" style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border-color);">
-          <div class="input-group">
-            <label for="inventoryRecorder" style="color: #f59e0b; font-weight: 600;"><i class="fa-solid fa-user-pen"></i> เจ้าหน้าที่ผู้รับเข้า/ปรับปรุงยอดคลัง:</label>
-            <div class="input-wrapper">
-              <input type="text" id="inventoryRecorder" placeholder="เช่น นายสมศักดิ์ (จนท.คลังพัสดุ)" required>
-            </div>
-          </div>
-          <div class="input-group">
-            <label for="inventoryNotes" style="color: #fbbf24;"><i class="fa-solid fa-comment-dots"></i> หมายเหตุรับเข้า/ตั้งค่ายกมา:</label>
-            <div class="input-wrapper">
-              <input type="text" id="inventoryNotes" placeholder="เช่น รับเข้าสารส้มล็อตใหม่ / ตั้งค่ายกมาต้นเดือน">
-            </div>
-          </div>
-        </div>
-
-        <!-- Standalone Inventory Save Button -->
-        <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-          <button type="button" class="btn-primary" onclick="saveSection('inventory')">
-            <i class="fa-solid fa-boxes-stacked"></i> บันทึกยอดยกมา/รับเข้าคลัง (เพื่อคำนวณหักลบ)
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: INVENTORY DASHBOARD VIEW -->
-    <div class="view-content" id="inventoryDashboardView">
-      <div class="table-header-tools">
-        <h2><i class="fa-solid fa-boxes-stacked text-accent"></i> รายงานสรุปยอดคงคลังคงเหลือสุทธิ (คำนวณหักลบอัตโนมัติ)</h2>
-      </div>
-
-      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-        <div class="kpi-card chemical">
-          <div class="kpi-title"><i class="fa-solid fa-box"></i> ยอดคงคลังสารส้มคงเหลือ</div>
-          <div class="kpi-value" id="invCardAlum">0 <span style="font-size: 0.9rem;">kg</span></div>
-          <div class="kpi-sub" id="subAlumCalc">ยอดยกมา - เบิกใช้รวม</div>
-        </div>
-        <div class="kpi-card chemical">
-          <div class="kpi-title"><i class="fa-solid fa-box"></i> ยอดคงคลังปูนขาวคงเหลือ</div>
-          <div class="kpi-value" id="invCardCaOH">0 <span style="font-size: 0.9rem;">kg</span></div>
-          <div class="kpi-sub" id="subCaOHCalc">ยอดยกมา - เบิกใช้รวม</div>
-        </div>
-        <div class="kpi-card chemical">
-          <div class="kpi-title"><i class="fa-solid fa-box"></i> ยอดคงคลังน้ำตาลคงเหลือ</div>
-          <div class="kpi-value" id="invCardSugar">0 <span style="font-size: 0.9rem;">kg</span></div>
-          <div class="kpi-sub" id="subSugarCalc">ยอดยกมา - เบิกใช้รวม</div>
-        </div>
-        <div class="kpi-card fuel">
-          <div class="kpi-title"><i class="fa-solid fa-oil-can"></i> ยอดคงคลังน้ำมันเตาคงเหลือ</div>
-          <div class="kpi-value" id="invCardFuelOil">0 <span style="font-size: 0.9rem;">ลิตร</span></div>
-          <div class="kpi-sub" id="subFuelOilCalc">ยอดยกมา - ใช้รวม</div>
-        </div>
-        <div class="kpi-card fuel">
-          <div class="kpi-title"><i class="fa-solid fa-fire"></i> ยอดคงคลังแก๊ส LPG คงเหลือ</div>
-          <div class="kpi-value" id="invCardFuelLPG">0 <span style="font-size: 0.9rem;">kg</span></div>
-          <div class="kpi-sub" id="subFuelLPGCalc">ยอดยกมา - ใช้รวม</div>
-        </div>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-flask chemical-icon"></i> ระดับคงคลังสารเคมีน้ำประปาสุทธิ</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="inventoryChemChart"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-gas-pump fuel-icon"></i> ระดับคงคลังเชื้อเพลิงสุทธิ</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="inventoryFuelChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: DAILY SUMMARY VIEW -->
-    <div class="view-content" id="dailyView">
-      <div class="table-header-tools">
-        <h2><i class="fa-solid fa-chart-line text-accent"></i> รายงานสรุปผลรายวัน (Daily Summary)</h2>
-        <div class="input-wrapper" style="width: auto;">
-          <input type="date" id="dailyDatePicker">
-        </div>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-bolt electricity-icon"></i> สัดส่วนผลิต vs ใช้ไฟฟ้า (kWh)</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="dailyElectricityChart"></canvas>
-          </div>
-        </div>
-        
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-flask chemical-icon"></i> สารเคมีผลิตน้ำประปา (kg)</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="dailyChemicalChart"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-clock steam-icon"></i> ชั่วโมงดำเนินงานไอน้ำ 6 โรงงาน</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="dailyPlantHoursChart"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-fire fuel-icon"></i> การใช้เชื้อเพลิงไอน้ำ (น้ำมันเตา/LPG)</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="dailyFuelChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 5: WEEKLY SUMMARY VIEW -->
-    <div class="view-content" id="weeklyView">
-      <div class="table-header-tools">
-        <h2><i class="fa-solid fa-chart-column text-accent"></i> รายงานสรุปผลรายสัปดาห์ (Weekly Summary)</h2>
-      </div>
-      
-      <div class="charts-grid">
-        <div class="chart-card" style="grid-column: 1 / -1;">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-chart-area electricity-icon"></i> แนวโน้มการใช้และผลิตไฟฟ้าประจำสัปดาห์ (7 วันล่าสุด)</div>
-          </div>
-          <div class="chart-container" style="height: 320px;">
-            <canvas id="weeklyElectricityChart"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-vial chemical-icon"></i> สารเคมีน้ำประปารายสัปดาห์</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="weeklyChemicalChart"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-industry steam-icon"></i> สรุปชั่วโมงรวม 6 โรงงานรายสัปดาห์</div>
-          </div>
-          <div class="chart-container">
-            <canvas id="weeklyPlantHoursChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 6: MONTHLY SUMMARY VIEW -->
-    <div class="view-content" id="monthlyView">
-      <div class="table-header-tools">
-        <h2><i class="fa-solid fa-calendar-days text-accent"></i> รายงานสรุปผลรายเดือน (Monthly Summary)</h2>
-        <div class="input-wrapper" style="width: auto;">
-          <input type="month" id="monthlyPicker">
-        </div>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-card" style="grid-column: 1 / -1;">
-          <div class="chart-header">
-            <div class="chart-title"><i class="fa-solid fa-chart-line"></i> สรุปภาพรวมพลังงานประจำเดือน</div>
-          </div>
-          <div class="chart-container" style="height: 320px;">
-            <canvas id="monthlyEnergyChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 7: LOGS VIEW WITH SEPARATED RECORDERS & INVENTORY STATUS -->
-    <div class="view-content" id="logsView">
-      <div class="table-card">
-        <div class="table-header-tools">
-          <h2><i class="fa-solid fa-table-list text-accent"></i> ตารางประวัติบันทึกข้อมูลย้อนหลัง</h2>
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input type="text" id="logSearchInput" placeholder="ค้นหาตามวันที่, ผู้บันทึก, หมายเหตุ...">
-          </div>
-        </div>
-
-        <table class="custom-table">
-          <thead>
-            <tr>
-              <th>วัน-เวลา</th>
-              <th>Solar Rooftop</th>
-              <th>Solar Farm</th>
-              <th>ใช้ไฟฟ้าPEA ณ กรง.ฯ</th>
-              <th>ใช้ไฟฟ้าPEA ณ โรงสูบน้ำแม่น้ำ</th>
-              <th>ผู้บันทึก/หมายเหตุ (ไฟฟ้า)</th>
-              <th>ใช้ สารส้ม</th>
-              <th>ใช้ ปูนขาว</th>
-              <th>ใช้ น้ำตาล</th>
-              <th>ผู้บันทึก/หมายเหตุ (ประปา)</th>
-              <th>เวลางาน 6 โรง (ชม.)</th>
-              <th>ใช้ น้ำมันเตา</th>
-              <th>ใช้ LPG</th>
-              <th>ผู้บันทึก/หมายเหตุ (ไอน้ำ&เชื้อเพลิง)</th>
-              <th>คงคลังสุทธิ (หลังหักลบ)</th>
-              <th>ผู้ปรับปรุงคลัง</th>
-              <th>จัดการ</th>
-            </tr>
-          </thead>
-          <tbody id="logsTableBody">
-            <!-- Dynamic Log Rows -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 8: SETTINGS & GOOGLE SYNC -->
-    <div class="view-content" id="settingsView">
-      <div class="form-card">
-        <div class="form-header">
-          <h2><i class="fa-solid fa-cloud-arrow-up text-accent"></i> การเชื่อมต่อ Google Sheets & สำรองข้อมูล</h2>
-        </div>
-        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem; line-height: 1.6;">
-          ระบบนี้รันบนเว็บและมือถือได้โดยไม่มีค่าเช่าเซิร์ฟเวอร์ หากต้องการส่งข้อมูลจากทุกเครื่องเข้าสู่ **Google Sheets** ของโรงงานโดยอัตโนมัติ เพื่อให้เจ้าหน้าที่แต่ละส่วนกรอกพร้อมกันได้ สามารถกรอก Google Apps Script Web App URL ได้ที่นี่
-        </p>
-
-        <div class="input-group" style="margin-bottom: 20px;">
-          <label for="googleScriptUrl">Google Apps Script Web App URL:</label>
-          <div class="input-wrapper">
-            <input type="url" id="googleScriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 12px; margin-bottom: 30px;">
-          <button class="btn-primary" id="saveSettingsBtn">
-            <i class="fa-solid fa-floppy-disk"></i> บันทึก URL การเชื่อมต่อ
-          </button>
-          <button class="btn-secondary" id="testSyncBtn">
-            <i class="fa-solid fa-rotate"></i> ทดสอบ Sync เข้า Google Sheets
-          </button>
-        </div>
-
-        <hr style="border-color: var(--border-color); margin-bottom: 20px;">
-
-        <h3><i class="fa-solid fa-download"></i> สำรองและกู้คืนข้อมูล Local Database</h3>
-        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 10px 0 16px 0;">
-          สามารถส่งออกไฟล์ JSON เพื่อย้ายข้อมูลไปเครื่องอื่น หรือกู้คืนข้อมูลได้ทันที
-        </p>
-
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-          <button class="btn-secondary" id="backupJsonBtn">
-            <i class="fa-solid fa-file-code"></i> สำรองข้อมูล (Backup JSON)
-          </button>
-          <button class="btn-secondary" id="clearDataBtn" style="color: #ef4444;">
-            <i class="fa-solid fa-trash-can"></i> ล้างข้อมูลทั้งหมด
-          </button>
-        </div>
-      </div>
-    </div>
-
+<div class="wrap">
+  <!-- โหมด: บันทึกข้อมูล / รายงาน -->
+  <div class="modebar">
+    <button class="modebtn active" data-mode="entry">✍️ บันทึกข้อมูล</button>
+    <button class="modebtn" data-mode="view">📊 รายงาน / สรุปผล</button>
   </div>
 
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
+  <div class="tabs">
+    <button class="tab active" data-tab="elecmon">⚡ ไฟฟ้า</button>
+    <button class="tab" data-tab="water">💧 น้ำประปา–สารเคมี</button>
+    <button class="tab" data-tab="boiler">🔥 ไอน้ำ–เชื้อเพลิง</button>
+    <button class="tab" data-tab="records">📋 รายการบันทึก</button>
+    <button class="tab" data-tab="exec">🏢 ภาพรวมผู้บริหาร</button>
+    <button class="tab" data-tab="status">🕓 สถานะการบันทึก</button>
+    <button class="tab" data-tab="summary">📊 ข้อมูลย้อนหลัง</button>
+    <button class="tab" data-tab="report">📋 แบบฟอร์ม ปจด</button>
+  </div>
 
-  <!-- Script Load -->
-  <script src="app.js"></script>
+  <!-- SYNC BAR -->
+  <div class="card" style="padding:12px 16px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="syncStatus" style="font-weight:700;font-size:13px">● โหมดออฟไลน์</span>
+      <input id="apiUrlInput" placeholder="วางลิงก์ Google Apps Script Web App URL ที่นี่" style="flex:1;min-width:220px">
+      <button class="btn btn-ghost btn-sm" id="btnConnect">เชื่อมต่อ</button>
+      <button class="btn btn-ghost btn-sm" id="btnUpload">⬆ อัปโหลดขึ้น Sheet</button>
+      <button class="btn btn-ghost btn-sm" id="btnPull">⬇ ดึงจาก Sheet</button>
+      <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">📥 นำเข้า CSV<input type="file" id="csvFile" accept=".csv" style="display:none"></label>
+      <span id="whoami" style="font-size:12.5px;color:var(--muted);font-weight:600"></span>
+      <button class="btn btn-ghost btn-sm" id="btnClean" onclick="cleanDuplicates()">🧹 ล้างข้อมูลซ้ำ</button>
+      <button class="btn btn-ghost btn-sm" id="btnLogout" style="display:none" onclick="doLogout()">ออกจากระบบ</button>
+    </div>
+    <div id="cloudWarn" style="display:none;background:#fef2f2;border:2px solid #dc2626;color:#b91c1c;
+      padding:12px 14px;border-radius:10px;margin:10px 0 0;font-size:13.5px;font-weight:600;line-height:1.6"></div>
+    <div class="hint" style="margin:10px 0 0">โหมดออฟไลน์ = เก็บในเครื่องนี้เท่านั้น · เชื่อม Google Sheet แล้ว = ฐานข้อมูลกลาง หลายคนเห็น/กรอกชุดเดียวกัน (วิธีตั้งค่าอยู่ในไฟล์คู่มือ)</div>
+  </div>
+
+  <!-- ENTRY -->
+
+  <!-- MONTHLY ELECTRICITY METER -->
+  <section id="tab-elecmon" style="display:none">
+  <div class="card entry-only">
+    <h2>บันทึกไฟฟ้ารายวัน (Solar / การใช้ไฟ)</h2>
+    <form onsubmit="return false">
+        <div class="unitbox">
+          <div class="unithead"><span class="unittag u-elec">ส่วนไฟฟ้า</span></div>
+          <div class="unitsub">รับผิดชอบ: ปริมาณผลิตไฟฟ้า และปริมาณการใช้ไฟฟ้า</div>
+          <div class="grid">
+            <div><label>วันที่</label><input type="date" id="f_elec_date"></div>
+            <div><label>ผู้บันทึก</label><input type="text" id="f_elec_user" placeholder="ชื่อเจ้าหน้าที่"></div>
+          </div>
+          <div class="section-title">ปริมาณผลิตไฟฟ้า (kWh)</div>
+          <div class="grid">
+            <div><label>Solar rooftop</label><input type="number" step="any" min="0" id="f_solar_roof" placeholder="0"></div>
+            <div><label>Solar farm</label><input type="number" step="any" min="0" id="f_solar_farm" placeholder="0"></div>
+          </div>
+          <div class="section-title">ปริมาณการใช้ไฟฟ้า (kWh)</div>
+          <div class="grid">
+            <div><label>อาคารสำนักงาน (กรง.ฯ)</label><input type="number" step="any" min="0" id="f_use_office" placeholder="0"></div>
+            <div><label>โรงสูบน้ำ</label><input type="number" step="any" min="0" id="f_use_pump" placeholder="0"></div>
+          </div>
+          <div style="margin-top:12px"><button type="button" class="btn btn-primary btn-sm" onclick="saveUnit('elec')">✅ ยืนยันบันทึกส่วนไฟฟ้า</button></div>
+        </div>
+    </form>
+  </div>
+    <div class="card entry-only">
+      <h2>บันทึกการใช้ไฟฟ้าภายในกองโรงงาน (รายเดือน)</h2>
+      <div class="hint">เลือกเดือน → กรอก เลขก่อนจด / เลขหลังจด ของแต่ละสถานี ระบบคำนวณ "จำนวนใช้" และยอดรวมให้อัตโนมัติ (เหมือนไฟล์ Excel เดิม) · กด 💾 บันทึกทั้งเดือน</div>
+      <div class="controls">
+        <div><label>เดือน (ปีงบ)</label><select id="em_month"></select></div>
+        <div><label>ผู้บันทึก</label><input type="text" id="em_user" placeholder="ชื่อเจ้าหน้าที่"></div>
+      </div>
+      <div class="table-scroll">
+        <table id="emTable"><tr><th>สถานีไฟฟ้า</th><th>เลขก่อนจด</th><th>เลขหลังจด</th><th>จำนวนใช้ (MWh)</th><th>หมายเหตุ</th></tr></table>
+      </div>
+      <div class="kpis" style="margin-top:12px">
+        <div class="kpi cyan"><div class="l">รวมทั้งเดือน</div><div class="v" id="emTotal">0</div><div class="u">MWh</div></div>
+      </div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary" onclick="saveElecMonth()">💾 บันทึกทั้งเดือน</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnEmCsv">⬇ Export CSV</button>
+      </div>
+    </div>
+
+    <div class="card view-only">
+      <span class="blk">A) ภาพรวมการใช้ไฟทั้งกองโรงงาน</span>
+      <div class="src">หน่วย: kWh · ที่มา: บิลการไฟฟ้าส่วนภูมิภาค (PEA) · กรอกที่แท็บ "📄 ข้อมูลรายงาน"</div>
+      <div class="controls"><div><label>เดือน</label><select id="peaMonth" onchange="renderPEA()"></select></div></div>
+      <div class="kpis" id="peaKpis"></div>
+      <canvas id="chartPEA"></canvas>
+    </div>
+
+    <div class="card view-only">
+      <span class="blk">B) การใช้ไฟแยกตามสถานีไฟฟ้า</span>
+      <div class="src">หน่วย: <b>MWh</b> (1 MWh = 1,000 kWh) · ที่มา: จดมิเตอร์รายเดือน โดยส่วนไฟฟ้า</div>
+      <div class="table-scroll"><table id="emPivot"></table></div>
+      <div style="margin-top:14px"><canvas id="chartElecMon"></canvas></div>
+    </div>
+
+    <div class="card view-only">
+      <span class="blk">C) การผลิตไฟฟ้าจากโซลาร์เซลล์ และสรุปรวม</span>
+      <div class="src">หน่วย: kWh · ที่มา: มิเตอร์โซลาร์ (ผนวก ฉ) และบันทึกรายวัน</div>
+      <div class="controls">
+        <div><label>กรองเดือน</label><select id="elecFilter" onchange="renderElec()"><option value="">ทั้งหมด</option></select></div>
+        <div><button class="btn btn-ghost btn-sm" id="btnElecCsv">⬇ Export CSV</button></div>
+      </div>
+      <div class="kpis" id="elecKpis"></div>
+      <canvas id="chartElec"></canvas>
+      <div class="table-scroll" style="margin-top:14px"><table id="elecTable"></table></div>
+    </div>
+  </section>
+
+  <!-- WATER PLANT (น้ำประปา) -->
+  <section id="tab-water" style="display:none">
+    <div class="card entry-only">
+      <h2>บันทึกการผลิตน้ำประปา (รายวัน)</h2>
+      <div class="hint">กรอก <b>เลขมิเตอร์หลัง</b> หรือ <b>ผลิตน้ำได้</b> อย่างใดอย่างหนึ่ง ระบบเติมอีกช่องให้เอง · เวลาใช้แบบ 24 ชม. พิมพ์ 4 หลัก เช่น 0900 · เลขมิเตอร์ก่อนดึงจากวันล่าสุดอัตโนมัติ · วันที่ไม่เดินเครื่อง กด "🚫 ไม่มีการผลิต"</div>
+      <form id="waterForm" onsubmit="return false">
+        <div class="grid">
+          <div><label>วันที่</label><input type="date" id="w_date"></div>
+          <div><label>ผู้บันทึก</label><input type="text" id="w_user" placeholder="ชื่อเจ้าหน้าที่"></div>
+          <div><label>ระดับน้ำดิบ ถัง 3000 คิว (ลบ.ม.)</label><input type="number" step="any" id="w_raw3000" placeholder="0"></div>
+        </div>
+        <div class="section-title">การผลิตน้ำเข้าถัง 3000 คิว</div>
+        <div class="grid">
+          <div><label>เลขมิเตอร์ก่อน <span style="color:var(--brand);font-weight:700">(อัตโนมัติ)</span></label><input type="number" step="any" id="w_mprev" placeholder="0" oninput="wFromMeter()"></div>
+          <div><label>เลขมิเตอร์หลัง</label><input type="number" step="any" id="w_mcurr" placeholder="0" oninput="wFromMeter()"></div>
+          <div><label>ผลิตน้ำได้ (ลบ.ม./วัน)</label><input type="number" step="any" id="w_produced" placeholder="0" oninput="wFromProduced()"></div>
+          <div><label>เวลาเปิด (เริ่มเดินเครื่อง)</label><input type="text" inputmode="numeric" maxlength="5" placeholder="0900" id="w_topen" oninput="wValidate()" onblur="fixTime(this);wValidate()"></div>
+          <div><label>เวลาปิด (หยุดเดินเครื่อง)</label><input type="text" inputmode="numeric" maxlength="5" placeholder="1300" id="w_tclose" oninput="wValidate()" onblur="fixTime(this);wValidate()"></div>
+          <div><label>ชม.การทำงาน</label><input type="number" step="any" id="w_hours" placeholder="0" oninput="wValidate()"></div>
+        </div>
+        <div class="section-title">สารเคมีที่ใช้</div>
+        <div class="grid">
+          <div><label>ALUM สารส้ม (กก.)</label><input type="number" step="any" id="w_alum" placeholder="0"></div>
+          <div><label>CaOH₂ ปูนขาว (กก.)</label><input type="number" step="any" id="w_caoh" placeholder="0"></div>
+          <div><label>Sugar น้ำตาล (กก.)</label><input type="number" step="any" id="w_sugar" placeholder="0"></div>
+          <div><label>หมายเหตุ</label><input type="text" id="w_note" placeholder="เช่น ล้างถัง / เครื่องเสีย"></div>
+        </div>
+        <div id="wWarn" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 12px;border-radius:9px;margin-top:12px;font-size:13px;font-weight:600"></div>
+        <div class="kpis" style="margin-top:12px">
+          <div class="kpi cyan"><div class="l">ผลิตน้ำได้</div><div class="v" id="wProduced">0</div><div class="u">ลบ.ม./วัน</div></div>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-primary" onclick="saveWater()">💾 บันทึก</button>
+          <button type="button" class="btn btn-ghost" onclick="wNoProd()">🚫 ไม่มีการผลิต</button>
+          <button type="button" class="btn btn-ghost" id="wClear">ล้างฟอร์ม</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnWaterCsv">⬇ Export CSV</button>
+        </div>
+        <input type="hidden" id="w_id">
+      </form>
+    </div>
+
+
+    <div class="card view-only">
+      <span class="blk">ก) กระบวนการผลิตน้ำประปา</span>
+      <div class="src">สารเคมีที่ใช้: <b>สารส้ม ALUM</b> · หน่วยน้ำ: ลบ.ม. · ที่มา: สมุดบันทึกรายวัน ส่วนผลิตน้ำประปา</div>
+      <div class="kpis" id="wKpis"></div>
+      <div class="section-title">ปริมาณผลิตน้ำประปารายเดือน (ลบ.ม.)</div>
+      <canvas id="chartWater"></canvas>
+      <div class="section-title">อัตราการใช้สารส้ม (กรัม ต่อ น้ำ 1 ลบ.ม.) — ยิ่งต่ำยิ่งประหยัด</div>
+      <canvas id="chartAlumRate"></canvas>
+    </div>
+
+    <div class="card view-only">
+      <span class="blk">ข) กระบวนการบำบัดน้ำเสีย</span>
+      <div class="src">สารเคมีที่ใช้: <b>ปูนขาว Ca(OH)₂</b> และ <b>น้ำตาล</b> · หน่วย: กก.</div>
+      <canvas id="chartWaste"></canvas>
+      <div class="section-title">ยอดคงคลังสารเคมี (แก้ไขได้)</div>
+      <div class="grid">
+        <div><label>สารส้มคงเหลือ (กก.)</label><input type="number" step="any" id="st_alum_remain"></div>
+        <div><label>ปูนขาวคงเหลือ (กก.)</label><input type="number" step="any" id="st_caoh_remain"></div>
+      </div>
+    </div>
+
+    <div class="card view-only">
+      <h2>ตารางสรุปรายเดือน</h2>
+      <div class="src">รวมทั้งการผลิตน้ำประปาและการบำบัดน้ำเสีย</div>
+      <div class="table-scroll"><table id="wMonth"></table></div>
+      <div style="display:none"><span id="chemKpis"></span><table id="chemTable"></table><canvas id="chartChemSum"></canvas><select id="chemFilter"></select><button id="btnChemCsv"></button></div>
+    </div>
+    <div class="card view-only">
+      <h2>รายการบันทึกน้ำประปา</h2>
+      <div class="controls">
+        <div><label>กรองเดือน</label><select id="wRecFilter" onchange="renderWater()"><option value="">ทั้งหมด</option></select></div>
+      </div>
+      <div class="table-scroll"><table id="wRec"></table></div>
+    </div>
+  </section>
+
+  <!-- MONTHLY REPORT (เฟส B) -->
+  <section id="tab-report" style="display:none">
+    <div class="card">
+      <h2>แบบฟอร์ม ปจด. — รายงานผลการติดตามการใช้พลังงานประจำเดือน</h2>
+      <div class="hint">เลือกเดือนที่จะออกรายงาน → กรอกข้อมูลประกอบ (บิล PEA / ค่าไฟ / โซลาร์ / มิเตอร์อาคาร) → กด 💾 บันทึก แล้วกด 🖨 พิมพ์รายงาน (น้ำมันเตาและไฟฟ้ารายเดือนดึงจากในระบบให้อัตโนมัติ)</div>
+      <div class="controls">
+        <div><label>เดือนที่รายงาน</label><select id="rp_month" onchange="loadReportForm()"></select></div>
+      </div>
+
+      <div class="section-title">หัวรายงาน (บันทึกข้อความ)</div>
+      <div class="grid">
+        <div><label>เลขที่หนังสือ (ที่ พ./..)</label><input type="text" id="rp_doc_no" placeholder="พ./๖๙"></div>
+        <div><label>วัน เดือน ปี</label><input type="text" id="rp_doc_date" placeholder="ก.ค.๖๙"></div>
+        <div><label>ลงชื่อ (ผู้รายงาน)</label><input type="text" id="rp_signer" placeholder="(สำเริง สุขหย่อง)"></div>
+        <div><label>ตำแหน่ง</label><input type="text" id="rp_signer_pos" placeholder="รอง ผอ.กรง.รวท.อท.ศอพท."></div>
+      </div>
+
+      <div class="section-title">ผนวก ก — ไฟฟ้ากองโรงงานรายเดือน (จาก PEA)</div>
+      <div class="grid">
+        <div><label>RATE A (On Peak) kWh</label><input type="number" step="any" id="rp_rate_a" placeholder="0"></div>
+        <div><label>RATE B (Off Peak) kWh</label><input type="number" step="any" id="rp_rate_b" placeholder="0"></div>
+        <div><label>RATE C (Holiday) kWh</label><input type="number" step="any" id="rp_rate_c" placeholder="0"></div>
+        <div><label>จำนวนวันในเดือน</label><input type="number" step="any" id="rp_days" placeholder="30"></div>
+      </div>
+
+      <div class="section-title">ผนวก ข — สูงสุด/ต่ำสุด ในรอบเดือน</div>
+      <div class="grid">
+        <div><label>ใช้ไฟสูงสุด (kWh)</label><input type="number" step="any" id="rp_elec_max" placeholder="0"></div>
+        <div><label>วันที่สูงสุด</label><input type="text" id="rp_elec_max_day" placeholder="๙ มิ.ย.๖๙"></div>
+        <div><label>ใช้ไฟต่ำสุด (kWh)</label><input type="number" step="any" id="rp_elec_min" placeholder="0"></div>
+        <div><label>วันที่ต่ำสุด</label><input type="text" id="rp_elec_min_day" placeholder="๑ มิ.ย.๖๙"></div>
+      </div>
+
+      <div class="section-title">ผนวก ค — มิเตอร์อาคาร/โรงงาน + P28 (kWh)</div>
+      <div class="grid">
+        <div><label>โรงงานการซ่อมและสนับสนุน</label><input type="number" step="any" id="rp_c_repair" placeholder="0"></div>
+        <div><label>โรงงานผลิตดินส่งกระสุน</label><input type="number" step="any" id="rp_c_powder" placeholder="0"></div>
+        <div><label>โรงงานกรดและอีเธอร์</label><input type="number" step="any" id="rp_c_acid" placeholder="0"></div>
+        <div><label>โรงงานผลิตไนโตรเซลลูโลส</label><input type="number" step="any" id="rp_c_nc" placeholder="0"></div>
+        <div><label>โรงงานผลิตไนโตรกลีเซอรีน</label><input type="number" step="any" id="rp_c_ng" placeholder="0"></div>
+        <div><label>โรงงานผลิตกระสุน (P28)</label><input type="number" step="any" id="rp_c_p28" placeholder="0"></div>
+      </div>
+
+      <div class="section-title">ผนวก ง — ค่าไฟฟ้าเฉลี่ยต่อหน่วย (จากบิล)</div>
+      <div class="grid">
+        <div><label>บิลกองโรงงาน — kWh</label><input type="number" step="any" id="rp_g1_kwh" placeholder="0"></div>
+        <div><label>บิลกองโรงงาน — บาท</label><input type="number" step="any" id="rp_g1_baht" placeholder="0"></div>
+        <div><label>บิลโรงสูบน้ำเจ้าพระยา — kWh</label><input type="number" step="any" id="rp_g2_kwh" placeholder="0"></div>
+        <div><label>บิลโรงสูบน้ำเจ้าพระยา — บาท</label><input type="number" step="any" id="rp_g2_baht" placeholder="0"></div>
+      </div>
+
+      <div class="section-title">ผนวก ฉ — โซลาร์เซลล์ (kWh)</div>
+      <div class="grid">
+        <div><label>ฉ-1 กองโรงงาน: ผลิต PV</label><input type="number" step="any" id="rp_pv1" placeholder="0"></div>
+        <div><label>ฉ-1 กองโรงงาน: จาก grid (PEA)</label><input type="number" step="any" id="rp_grid1" placeholder="0"></div>
+        <div><label>ฉ-2 บก.รวท.: ผลิต PV</label><input type="number" step="any" id="rp_pv2" placeholder="0"></div>
+        <div><label>ฉ-2 บก.รวท.: จาก grid (PEA)</label><input type="number" step="any" id="rp_grid2" placeholder="0"></div>
+      </div>
+
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary" onclick="saveReport()">💾 บันทึกข้อมูลรายงาน</button>
+        <button type="button" class="btn btn-ghost" onclick="openReportPrint()">🖨 พิมพ์รายงาน (HTML)</button>
+        <button type="button" class="btn btn-ghost" onclick="exportReportDocx()">⬇ ดาวน์โหลด .docx</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATUS: ติดตามว่าแต่ละหน่วยบันทึกล่าสุดเมื่อไหร่ -->
+  <section id="tab-status" style="display:none">
+    <div class="card">
+      <h2>สถานะการบันทึกข้อมูลของแต่ละหน่วย</h2>
+      <div class="src">เวลาที่แสดงคือ <b>เวลาที่กรอกเข้าระบบจริง</b> (ประทับจากเซิร์ฟเวอร์) ไม่ใช่วันที่ของข้อมูล</div>
+      <div class="kpis" id="stKpis"></div>
+      <div class="table-scroll"><table id="stTable"></table></div>
+      <div class="src" style="margin-top:12px;background:#fff;border-color:#e2e8f0;color:#475569">
+        เกณฑ์ — รายวัน: 🟢 ภายใน 1 วัน · 🟡 2–3 วัน · 🔴 เกิน 3 วัน &nbsp;|&nbsp;
+        รายเดือน: 🟢 บันทึกเดือนที่แล้วครบ · 🟡 เลยวันที่ 7 ยังไม่บันทึก · 🔴 เลยวันที่ 15 ยังไม่บันทึก
+      </div>
+    </div>
+    <div class="card" id="loginCard">
+      <h2>ประวัติการเข้าใช้งานระบบ</h2>
+      <div class="src">บันทึกอัตโนมัติทุกครั้งที่มีผู้ล็อกอิน · แสดง 30 รายการล่าสุด</div>
+      <div class="table-scroll"><table id="loginTable"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>ความครบถ้วนของเดือนปัจจุบัน</h2>
+      <div class="controls"><div><label>เดือน</label><select id="stMonth" onchange="renderStatus()"></select></div></div>
+      <div class="table-scroll"><table id="stMissing"></table></div>
+    </div>
+  </section>
+
+  <!-- EXECUTIVE OVERVIEW -->
+  <section id="tab-exec" style="display:none">
+    <div class="card">
+      <h2>ภาพรวมการใช้พลังงาน</h2>
+      <div id="scopeNote" class="src" style="display:none;background:#fffbeb;border-color:#fde68a;color:#b45309"></div>
+      <div class="controls">
+        <div><label>เดือนที่ดู</label><select id="ex_month" onchange="renderExec()"></select></div>
+        <div><label>เทียบกับ</label><select id="ex_cmp" onchange="renderExec()">
+          <option value="prev">เดือนก่อนหน้า</option><option value="year">เดือนเดียวกันปีก่อน</option></select></div>
+      </div>
+      <div class="kpis" id="execKpis" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+    </div>
+    <div class="card"><h2>แนวโน้มไฟฟ้า (kWh) รายเดือน</h2><canvas id="chartExecElec"></canvas></div>
+    <div class="card"><h2>⛽ แนวโน้มการใช้น้ำมันเตา รายเดือน</h2>
+      <div class="src">หน่วย: ลิตร · ที่มา: ส่วนผลิตไอน้ำ</div><canvas id="chartExecFuel"></canvas></div>
+    <div class="card"><h2>💧 แนวโน้มการผลิตน้ำประปา รายเดือน</h2>
+      <div class="src">หน่วย: ลบ.ม. · ที่มา: ส่วนผลิตน้ำประปา</div><canvas id="chartExecWater"></canvas></div>
+
+    <div class="card">
+      <span class="blk">เปรียบเทียบปีงบประมาณ</span>
+      <div class="src">เทียบเดือนต่อเดือนตามปีงบ (ต.ค.–ก.ย.) · YTD = ยอดสะสมเฉพาะเดือนที่มีข้อมูลทั้งสองปี</div>
+      <div class="controls">
+        <div><label>ปีงบหลัก</label><select id="fyA" onchange="renderFYCompare()"></select></div>
+        <div><label>เทียบกับปีงบ</label><select id="fyB" onchange="renderFYCompare()"></select></div>
+        <div><label>รายการ</label><select id="fyMetric" onchange="renderFYCompare()"></select></div>
+      </div>
+      <div class="kpis" id="fyKpis"></div>
+      <canvas id="chartFY"></canvas>
+      <div class="table-scroll" style="margin-top:14px"><table id="fyTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>ตารางสรุปรายเดือน (แบบไวท์บอร์ด)</h2>
+      <div class="controls">
+        <div><label>ปีงบ</label><select id="exFY" onchange="renderExec()"></select></div>
+      </div>
+      <div class="table-scroll"><table id="exMatrix"></table></div>
+    </div>
+  </section>
+
+  <!-- ELECTRICITY DASHBOARD -->
+
+  <!-- CHEMICAL DASHBOARD -->
+
+  <!-- SUMMARY -->
+  <section id="tab-summary" style="display:none">
+    <div class="card">
+      <h2>ข้อมูลย้อนหลัง — เลือกช่วงเวลาและดาวน์โหลด</h2>
+      <div class="src">ใช้สำหรับดึงข้อมูลไปทำรายงาน · ภาพรวมและตารางไวท์บอร์ดดูได้ที่แท็บ 🏢 ภาพรวมผู้บริหาร</div>
+      <div class="controls">
+        <div>
+          <label>ช่วงเวลา</label>
+          <select id="s_period">
+            <option value="day">รายวัน</option>
+            <option value="week">รายสัปดาห์</option>
+            <option value="month" selected>รายเดือน</option>
+          </select>
+        </div>
+        <div><label>ตั้งแต่วันที่</label><input type="date" id="s_from"></div>
+        <div><label>ถึงวันที่</label><input type="date" id="s_to"></div>
+        <div><button class="btn btn-ghost btn-sm" id="btnCsv">⬇ Export CSV</button></div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+    </div>
+    <div class="card">
+      <h2>ตารางสรุป</h2>
+      <div class="table-scroll"><table id="sumTable"></table></div>
+    </div>
+    <div style="display:none"><canvas id="chartEnergy"></canvas><canvas id="chartChem"></canvas><table id="matrixTable"></table><select id="fySelect"></select><button id="btnMatrixCsv"></button></div>
+  </section>
+
+  <!-- BOILER -->
+  <section id="tab-boiler" style="display:none">
+  <div class="card entry-only">
+    <h2>บันทึกไอน้ำรายวัน (ชั่วโมงเดินเครื่อง)</h2>
+    <form onsubmit="return false">
+        <div class="unitbox">
+          <div class="unithead"><span class="unittag u-steam">ส่วนผลิตไอน้ำ</span></div>
+          <div class="unitsub">กรอก ๑) เครื่องที่เดิน + เชื้อเพลิง  ๒) โรงที่ใช้ไอน้ำ → ระบบปันส่วนเชื้อเพลิงให้แต่ละโรงและแสดงผลทันที · <b>ใช้เวลาแบบ 24 ชั่วโมง — พิมพ์ 4 หลัก เช่น 0800 หรือ 1630 (ระบบจัดรูปแบบให้เอง)</b> · เดินทั้งวัน 24 ชม. ให้กรอกเวลาเริ่ม=เลิก เท่ากัน (เช่น 0700 → 0700) · ถ้าไม่ได้เดิน เว้นว่างไว้</div>
+          <div class="grid">
+            <div><label>วันที่</label><input type="date" id="f_steam_date"></div>
+            <div><label>ผู้บันทึก</label><input type="text" id="f_steam_user" placeholder="ชื่อเจ้าหน้าที่"></div>
+          </div>
+          <div class="section-title">ก) เครื่องกำเนิดไอน้ำที่เดินวันนี้ — ชั่วโมงเดินเครื่อง + เชื้อเพลิงที่ใช้</div>
+          <div class="table-scroll">
+            <table id="machTable"><tr><th>เครื่อง</th><th>แรงดัน</th><th>เริ่ม</th><th>เลิก</th><th>ชม.</th><th>เชื้อเพลิงที่ใช้</th></tr></table>
+          </div>
+
+          <div class="section-title">ข) โรงงานที่ใช้ไอน้ำวันนี้ (ใช้ปันส่วนเชื้อเพลิง)</div>
+          <div class="table-scroll">
+            <table id="steamTable"><tr><th>โรง</th><th>เริ่ม</th><th>เลิก</th><th>ชั่วโมง</th></tr></table>
+          </div>
+
+          <div class="section-title">ค) สรุปการปันส่วน (คำนวณสดขณะกรอก)</div>
+          <div class="kpis">
+            <div class="kpi orange"><div class="l">รวมชั่วโมงเดินเครื่อง</div><div class="v" id="machTotH">0</div><div class="u">ชม.</div></div>
+            <div class="kpi orange"><div class="l">น้ำมันเตารวม</div><div class="v" id="machTotFuel">0</div><div class="u">ลิตร</div></div>
+            <div class="kpi cyan"><div class="l">LPG รวม</div><div class="v" id="machTotLpg">0</div><div class="u">กก.</div></div>
+            <div class="kpi"><div class="l">รวมชั่วโมงทุกโรง</div><div class="v" id="steamTotH">0</div><div class="u">ชม.</div></div>
+            <div class="kpi"><div class="l">เฉลี่ยน้ำมันเตา (LP)</div><div class="v" id="steamLphr">0</div><div class="u">ลิตร/ชม.</div></div>
+          </div>
+          <div class="table-scroll"><table id="allocTable"></table></div>
+          <div id="steamWarn" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 12px;border-radius:9px;margin-top:10px;font-size:13px;font-weight:600;line-height:1.7"></div>
+          <div style="display:none"><input id="f_steam_fuel"><input id="f_steam_lpg"></div>
+          <div style="margin-top:12px"><button type="button" class="btn btn-primary btn-sm" onclick="saveSteam()">✅ ยืนยันบันทึกส่วนผลิตไอน้ำ</button></div>
+        </div>
+    </form>
+<div style="display:none"><input type="date" id="f_water_date"><input type="text" id="f_water_user"><input type="number" id="f_alum"><input type="number" id="f_caoh"><input type="number" id="f_sugar"></div>
+  </div>
+    <div class="card entry-only">
+      <h2>บันทึกการใช้ไอน้ำรายโรงงาน (รายเดือน / ย้อนหลัง)</h2>
+      <div class="hint">ใช้กรอกย้อนหลังหรือนำเข้าข้อมูลเก่า — รายการคือ<b>โรงงานผู้ใช้ไอน้ำ</b> (NC, NG, P, IMI, B, ACID) ไม่ใช่เครื่องกำเนิดไอน้ำ · การบันทึกประจำวันให้ใช้ฟอร์มด้านบน</div>
+      <form id="boilerForm">
+        <div class="grid">
+          <div><label>เดือน (ปีงบ)</label>
+            <select id="b_month" required></select>
+          </div>
+          <div><label>รายการ</label>
+            <select id="b_item" required>
+              <option value="NC">NC</option><option value="NG">NG</option>
+              <option value="P">P</option><option value="IMI">IMI</option>
+              <option value="B">B</option><option value="ACID">ACID</option>
+            </select>
+          </div>
+          <div><label>ชั่วโมง (ชม.)</label><input type="number" step="any" min="0" id="b_hours" placeholder="0"></div>
+          <div><label>น้ำมันเตา (ลิตร)</label><input type="number" step="any" min="0" id="b_liters" placeholder="0"></div>
+          <div><label>LPG (กก.)</label><input type="number" step="any" min="0" id="b_lpg" placeholder="0"></div>
+          <div><label>ผู้บันทึก</label><input type="text" id="b_user" placeholder="ชื่อเจ้าหน้าที่"></div>
+          <div><label>วันที่ (ถ้าบันทึกรายวัน)</label><input type="date" id="b_date"></div>
+        </div>
+        <div class="row-actions">
+          <button type="submit" class="btn btn-primary">💾 บันทึก</button>
+          <button type="button" class="btn btn-ghost" id="bClear">ล้างฟอร์ม</button>
+        </div>
+        <input type="hidden" id="b_id">
+      </form>
+    </div>
+
+    <div class="card view-only">
+      <h2>ยอดรวมน้ำมันเตา (ปีงบ)</h2>
+      <div class="kpis" id="bKpis"></div>
+      <div class="section-title">ยอดคงคลัง (แก้ไขได้)</div>
+      <div class="grid">
+        <div><label>รับน้ำมันเตา (ลิตร)</label><input type="number" step="any" id="st_recv"></div>
+        <div><label>เบิก (ลิตร)</label><input type="number" step="any" id="st_issue"></div>
+        <div><label>คงเหลือ/ใช้ได้ (ลิตร)</label><input type="number" step="any" id="st_remain"></div>
+      </div>
+    </div>
+
+
+
+    <div class="card view-only">
+      <span class="blk">ชั่วโมงเดินเครื่องกำเนิดไอน้ำ</span>
+      <div class="src">ใช้วางแผนซ่อมบำรุง · หน่วย: ชั่วโมง · ที่มา: บันทึกไอน้ำรายวัน</div>
+      <div class="controls">
+        <div><label>มุมมอง</label><select id="mcMode" onchange="renderMachine()">
+          <option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select></div>
+        <div><label>ตั้งแต่วันที่</label><input type="date" id="mcFrom" onchange="renderMachine()"></div>
+        <div><label>ถึงวันที่</label><input type="date" id="mcTo" onchange="renderMachine()"></div>
+        <div><label>ค่าที่แสดง</label><select id="mcVal" onchange="renderMachine()">
+          <option value="hours">ชั่วโมงเดินเครื่อง</option><option value="fuel_qty">เชื้อเพลิงที่ใช้</option></select></div>
+      </div>
+      <div class="kpis" id="mcKpis"></div>
+      <div class="table-scroll"><table id="mcTable"></table></div>
+      <div style="margin-top:14px"><canvas id="chartMc"></canvas></div>
+      <div class="section-title">ชั่วโมงสะสมทั้งหมด (ตั้งแต่เริ่มบันทึก)</div>
+      <div class="table-scroll"><table id="mcTotal"></table></div>
+    </div>
+    <div class="card view-only">
+      <span class="blk">ตารางสรุปน้ำมันเตา — เลือกช่วงเวลาและโรงงานเอง</span>
+      <div class="src">เลือกดูราย <b>วัน</b> / <b>เดือน</b> / <b>ปีงบ</b> · เลือกโรงงานกี่โรงก็ได้ · หน่วย: ลิตร</div>
+      <div class="controls">
+        <div><label>มุมมอง</label><select id="bfMode" onchange="renderBoilerFlex()">
+          <option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select></div>
+        <div><label>ตั้งแต่วันที่</label><input type="date" id="bfFrom" onchange="renderBoilerFlex()"></div>
+        <div><label>ถึงวันที่</label><input type="date" id="bfTo" onchange="renderBoilerFlex()"></div>
+        <div><label>ค่าที่แสดง</label><select id="bfVal" onchange="renderBoilerFlex()">
+          <option value="liters">น้ำมันเตา (ลิตร)</option><option value="lpg">LPG (กก.)</option><option value="hours">ชั่วโมงเดินเครื่อง</option></select></div>
+      </div>
+      <div class="section-title">เลือกโรงงาน</div>
+      <div id="bfPlants" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px"></div>
+      <div class="row-actions" style="margin-top:4px">
+        <button class="btn btn-ghost btn-sm" onclick="bfAll(true)">เลือกทั้งหมด</button>
+        <button class="btn btn-ghost btn-sm" onclick="bfAll(false)">ล้างทั้งหมด</button>
+        <button class="btn btn-ghost btn-sm" id="btnBfCsv">⬇ Export CSV</button>
+      </div>
+      <div class="kpis" id="bfKpis" style="margin-top:12px"></div>
+      <div class="table-scroll"><table id="bfTable"></table></div>
+      <div style="margin-top:14px"><canvas id="chartBf"></canvas></div>
+    </div>
+    <div class="card view-only">
+      <h2>ตารางสรุป รายการ × เดือน (ลิตร)</h2>
+      <div class="table-scroll"><table id="bPivot"></table></div>
+    </div>
+
+    <div class="card view-only">
+      <h2>แนวโน้มการใช้น้ำมันเตารายเดือน</h2>
+      <canvas id="chartBoiler"></canvas>
+    </div>
+
+    <div class="card view-only">
+      <h2>รายการบันทึกน้ำมันเตา</h2>
+      <div class="hint">กด "แก้" เพื่อดึงค่ามาแก้ในฟอร์มด้านบน แล้วกด 💾 บันทึก (ทับรายการเดิม) · หรือ "ลบ" เพื่อลบทีละรายการ</div>
+      <div class="controls">
+        <div><label>กรองเดือน</label><select id="bRecFilter" onchange="renderBoiler()"><option value="">ทั้งหมด</option></select></div>
+      </div>
+      <div class="table-scroll"><table id="bRec"></table></div>
+    </div>
+  </section>
+
+  <!-- RECORDS -->
+  <section id="tab-records" style="display:none">
+    <div class="card">
+      <h2>รายการบันทึกทั้งหมด</h2>
+      <div class="hint">กด "แก้ไข" เพื่อแก้รายการที่บันทึกผิด · ชั่วโมง/โรงของไอน้ำ แก้ที่แท็บ 🔥 น้ำมันเตา Boiler · ถ้ากรอกไอน้ำผิดหลายจุด แนะนำลบทั้งวันแล้วกรอกใหม่</div>
+      <div class="controls">
+        <div><label>กรองตามวันที่ (เว้นว่าง = แสดงทั้งหมด)</label><input type="date" id="recFilter" onchange="renderRecords()"></div>
+        <div><button class="btn btn-ghost btn-sm" id="recFilterClear">ล้างตัวกรอง</button></div>
+      </div>
+      <div class="table-scroll"><table id="recTable"></table></div>
+      <div class="row-actions">
+        <button class="btn btn-danger btn-sm" id="btnWipe">ลบข้อมูลทั้งหมด</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="max-width:520px;width:100%;max-height:90vh;overflow:auto;margin:0">
+    <h2 id="editTitle">แก้ไขรายการ</h2>
+    <div class="grid">
+      <div><label>วันที่</label><input type="date" id="e_date"></div>
+      <div><label>ผู้บันทึก</label><input type="text" id="e_user"></div>
+    </div>
+    <div id="editFields"></div>
+    <div class="row-actions">
+      <button class="btn btn-primary btn-sm" onclick="saveRecordEdit()">💾 บันทึกการแก้ไข</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeEdit()">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<div id="loginOverlay" style="display:flex;position:fixed;inset:0;background:#0f172a;z-index:100;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="max-width:380px;width:100%;margin:0">
+    <div style="font-size:22px;font-weight:800;color:#0f766e;text-align:center">เข้าสู่ระบบ</div>
+    <div style="font-size:13px;color:#64748b;text-align:center;margin-bottom:16px">ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</div>
+    <label>ชื่อผู้ใช้</label><input type="text" id="loginUser" placeholder="username">
+    <div style="margin-top:10px"></div>
+    <label>PIN</label><input type="password" id="loginPin" placeholder="รหัส PIN">
+    <div id="loginErr" style="color:#dc2626;font-size:13px;margin-top:8px;min-height:18px"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div style="font-size:11.5px;color:#94a3b8;margin-top:10px;text-align:center">ครั้งแรกที่ยังไม่มีผู้ใช้ในระบบ ใช้ <b>admin</b> / <b>1234</b> เพื่อเข้าไปตั้งค่า</div>
+  </div>
+</div>
+
+<script>
+const KEY="agri_energy_records_v1";
+const FIELDS=[
+  ["solar_roof","Solar rooftop","kWh"],["solar_farm","Solar farm","kWh"],
+  ["use_office","ใช้ไฟ-อาคาร","kWh"],["use_pump","ใช้ไฟ-โรงสูบน้ำ","kWh"],
+  ["fuel","Fuel oil","L"],["lpg","LPG","kg"],["alum","ALUM","kg"],["caoh","CaOH2","kg"],["sugar","Sugar","kg"]
+];
+let records=load();
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function save(){localStorage.setItem(KEY,JSON.stringify(records))}
+function num(id){const v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v}
+function fmt(n){return (Math.round(n*100)/100).toLocaleString("th-TH")}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+
+/* ===== Cloud sync: Google Sheet ผ่าน Apps Script ===== */
+const CFGKEY="agri_api_url";
+// ฝังลิงก์เชื่อม Google Sheet ไว้ในแอป → ทุกเครื่องที่เปิดลิงก์จะเชื่อมอัตโนมัติ (เหลือแค่ล็อกอิน)
+const DEFAULT_URL="https://script.google.com/macros/s/AKfycbyGATngDVpSHDOKhITZraoGrh0tAFAhFgXwwJJwyPQho1M9ha7bIsDQH2Ja0YxrCesPiA/exec";
+// ถ้าเครื่องไหนยังจำลิงก์เก่าไว้ ให้เปลี่ยนมาใช้ลิงก์ใหม่อัตโนมัติ
+const OLD_URLS=["AKfycbxQYwcaY9hVY7JoIGBINAROEFnPqWVB27xlV2XU3xZ-gURuGC-8U-K2NAoDYbu4y3-tsQ"];
+let apiUrl=localStorage.getItem(CFGKEY)||DEFAULT_URL;
+if(OLD_URLS.some(function(o){return apiUrl.indexOf(o)>=0;})){apiUrl=DEFAULT_URL;localStorage.setItem(CFGKEY,apiUrl);}
+function CLOUD(){return !!apiUrl;}
+async function apiGet(){const r=await fetch(apiUrl+"?action=all");try{return await r.json();}catch(e){return null;}}
+function authInfo(){try{const s=JSON.parse(localStorage.getItem(SESSKEY)||"null");return s?{user:s.username,pin:s.pin}:{};}catch(e){return {};}}
+async function apiPost(payload){
+  payload=Object.assign({},payload,authInfo());
+  try{
+    const r=await fetch(apiUrl,{method:"POST",body:JSON.stringify(payload)});
+    try{return await r.json();}catch(e){return {ok:true,unparsed:true};}   // เขียนได้แต่อ่านคำตอบไม่ได้
+  }catch(e){return {ok:false,error:"เชื่อมต่อไม่ได้ ("+e.message+")"};}
+}
+// แจ้งเตือนเมื่อบันทึกขึ้นคลาวด์ไม่สำเร็จ (เดิมเงียบ ทำให้เข้าใจผิดว่าบันทึกแล้ว)
+function warnCloud(res,what){
+  if(res&&res.ok===false){
+    const box=document.getElementById("cloudWarn");
+    if(box){box.style.display="";box.innerHTML="⚠ <b>ยังไม่ได้บันทึกขึ้นฐานข้อมูลกลาง</b> ("+what+")<br>"+(res.error||"")+"<br>ข้อมูลอยู่ในเครื่องนี้เท่านั้น — กรุณาปิดแท็บแล้วเปิดใหม่ (หรือกด Ctrl+Shift+R) แล้วลองบันทึกอีกครั้ง";}
+    toast("⚠ บันทึกขึ้นคลาวด์ไม่สำเร็จ — ดูคำเตือนด้านบน");
+    return false;
+  }
+  const box=document.getElementById("cloudWarn");if(box)box.style.display="none";
+  return true;
+}
+function pushRow(sheet,row){if(CLOUD())apiPost({sheet:sheet,op:"upsert",row:row}).then(r=>warnCloud(r,sheet)).catch(()=>{});}
+function pushDel(sheet,id){if(CLOUD())apiPost({sheet:sheet,op:"delete",row:{id:id}}).then(r=>warnCloud(r,sheet)).catch(()=>{});}
+// ตรวจสิทธิ์ตอนล็อกอิน — รู้ทันทีถ้าแอปเป็นเวอร์ชันเก่าหรือ PIN ไม่ตรง
+function pushLogin(){
+  if(!currentUser)return;
+  var d=new Date(),p=n=>String(n).padStart(2,"0");
+  var at=d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+  var ua=navigator.userAgent||"";
+  var dev=/Android/i.test(ua)?"Android":/iPhone|iPad/i.test(ua)?"iOS":/Windows/i.test(ua)?"Windows":/Mac/i.test(ua)?"Mac":"อื่นๆ";
+  var rec={id:uid(),username:currentUser.username,role:currentUser.role,at:at,device:dev};
+  loginlog.push(rec);lgsave();
+  if(CLOUD())apiPost({sheet:"loginlog",op:"upsert",row:rec}).catch(()=>{});
+}
+async function pingCloud(){
+  if(!CLOUD())return;
+  try{const r=await apiPost({sheet:"config",op:"ping"});warnCloud(r,"ตรวจสิทธิ์ตอนเข้าระบบ");}catch(e){}
+}
+function pushStock(st){if(CLOUD())apiPost({sheet:"config",op:"stock",row:st}).catch(()=>{});}
+function rerenderActive(){const a=document.querySelector(".tab.active");if(!a)return;const t=a.dataset.tab;
+  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();renderBoilerFlex();renderMachine();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();}
+async function refreshFromCloud(force){
+  try{
+    const d=await apiGet();
+    if(d&&d.ok){
+      if(d.users)window._users=d.users;
+      // force = กด "ดึงจาก Sheet" เอง → ทับทั้งหมด · auto = ถ้า Sheet ว่างในชุดไหน เก็บของในเครื่องไว้ (กันข้อมูลหายเมื่อ backend ยังไม่มีชีตนั้น)
+      const pick=(cloud,local)=> force ? (cloud||[]) : ((cloud&&cloud.length)?cloud:local);
+      const has=(d.records&&d.records.length)||(d.boiler&&d.boiler.length)||(d.elecmonth&&d.elecmonth.length)||(d.report&&d.report.length)||(d.water&&d.water.length);
+      if(has||force){
+        records=pick(d.records,records);boiler=pick(d.boiler,boiler);
+        elecmonth=pick(d.elecmonth,elecmonth);report=pick(d.report,report);water=pick(d.water,water);
+        if(d.stock)bstock=d.stock;
+        if(d.loginlog)loginlog=d.loginlog;
+        machine=pick(d.machine,machine);
+        save();bsave();stsave();emsave();rpsave();wsave();lgsave();mcsave();rerenderActive();
+      }
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
+// ---- โหมด + แท็บ ----
+const ALLTABS=["elecmon","water","boiler","report","records","exec","status","summary"];
+// แท็บที่แสดงในแต่ละโหมด
+const MODETABS={
+  entry:["elecmon","water","boiler","records","report"],
+  view:["exec","status","elecmon","water","boiler","summary","report"]
+};
+let curMode="entry";
+function openTab(t){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
+  ALLTABS.forEach(x=>{const el=document.getElementById("tab-"+x);if(el)el.style.display=(x===t?"block":"none");});
+  // โหมดบันทึก = โชว์เฉพาะฟอร์ม · โหมดรายงาน = โชว์เฉพาะสรุป
+  document.querySelectorAll(".entry-only").forEach(el=>el.style.display=(curMode==="entry"?"":"none"));
+  document.querySelectorAll(".view-only").forEach(el=>el.style.display=(curMode==="view"?"":"none"));
+  if(t==="summary")renderSummary();
+  if(t==="records")renderRecords();
+  if(t==="boiler"){renderBoiler();renderBoilerFlex();renderMachine();}
+  if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}
+  if(t==="report")loadReportForm();
+  if(t==="water"){renderWater();renderChem();}
+  if(t==="exec")renderExec();
+  if(t==="status")renderStatus();
+}
+function setMode(m){
+  curMode=m;
+  document.querySelectorAll(".modebtn").forEach(b=>b.classList.toggle("active",b.dataset.mode===m));
+  const allow=MODETABS[m].filter(t=>!window._roleTabs||window._roleTabs.indexOf(t)>=0);
+  document.querySelectorAll(".tab").forEach(b=>b.style.display=allow.indexOf(b.dataset.tab)>=0?"":"none");
+  // บางบทบาทให้เปิดแท็บของแผนกตัวเองก่อน (เช่น หัวหน้าไฟฟ้า/เครื่องกล)
+  const pref=(m==="view"&&window._roleFirst&&allow.indexOf(window._roleFirst)>=0)?window._roleFirst:null;
+  openTab(pref||allow[0]||"exec");
+}
+document.querySelectorAll(".modebtn").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>openTab(b.dataset.tab));
+
+// ---- entry ----
+const ALLFIELDS=["solar_roof","solar_farm","use_office","use_pump","fuel","lpg","alum","caoh","sugar"];
+function blankRec(){var o={};ALLFIELDS.forEach(k=>o[k]=0);return o;}
+
+// แต่ละหน่วยมีวันที่+ผู้บันทึก+ปุ่มยืนยันของตัวเอง
+const UNITMETA={
+  elec:{d:"f_elec_date",u:"f_elec_user",f:["solar_roof","solar_farm","use_office","use_pump"],n:"ส่วนไฟฟ้า"},
+  water:{d:"f_water_date",u:"f_water_user",f:["alum","caoh","sugar"],n:"ส่วนผลิตน้ำประปา"}
+};
+function saveUnit(u){
+  const m=UNITMETA[u];
+  const date=document.getElementById(m.d).value;
+  if(!date){toast("เลือกวันที่ก่อน");return;}
+  const rec=Object.assign({id:uid(),date:date,user:document.getElementById(m.u).value.trim()},blankRec());
+  m.f.forEach(k=>rec[k]=num("f_"+k));
+  records.push(rec);save();pushRow("records",rec);
+  m.f.forEach(k=>document.getElementById("f_"+k).value="");
+  toast("บันทึก"+m.n+"แล้ว");
+}
+
+// แปลงเวลาที่พิมพ์ให้เป็นรูปแบบ 24 ชั่วโมง HH:MM (พิมพ์ 0800 / 800 / 08:00 ได้หมด)
+function norm24(v){
+  var s=String(v||"").trim().replace(/[^\d:]/g,"");
+  if(!s)return "";
+  var hh,mm;
+  if(s.indexOf(":")>=0){var p=s.split(":");hh=+p[0];mm=+(p[1]||0);}
+  else if(s.length<=2){hh=+s;mm=0;}
+  else{s=("000"+s).slice(-4);hh=+s.slice(0,2);mm=+s.slice(2,4);}
+  if(isNaN(hh)||isNaN(mm)||hh>23||mm>59)return "";
+  return ("0"+hh).slice(-2)+":"+("0"+mm).slice(-2);
+}
+function fixTime(el){var v=norm24(el.value);if(v)el.value=v;}
+
+/* ===== เครื่องกำเนิดไอน้ำ =====
+   HP (No.3, No.4) จ่ายไอน้ำให้ ACID เท่านั้น -> น้ำมันลง ACID ทั้งหมด
+   LP (No.2 น้ำมันเตา, No.1.x แก๊ส) จ่ายโรงทั่วไป -> ปันส่วนตามชั่วโมงที่แต่ละโรงใช้ไอน้ำ */
+const MACHINES=[
+  {id:"No.2",  press:"LP", fuel:"fuel", unit:"ลิตร", note:"น้ำมันเตา"},
+  {id:"No.3",  press:"HP", fuel:"fuel", unit:"ลิตร", note:"น้ำมันเตา · ซ่อมปี ๗๐"},
+  {id:"No.4",  press:"HP", fuel:"fuel", unit:"ลิตร", note:"น้ำมันเตา"},
+  {id:"No.1.1",press:"LP", fuel:"lpg",  unit:"กก.",  note:"แก๊ส LPG"},
+  {id:"No.1.2",press:"LP", fuel:"lpg",  unit:"กก.",  note:"แก๊ส LPG"},
+  {id:"No.1.3",press:"LP", fuel:"lpg",  unit:"กก.",  note:"แก๊ส LPG"}
+];
+const HP_PLANT="ACID";                       // โรงที่รับไอน้ำจากเครื่อง HP
+function mKey(id){return id.replace(/\./g,"_");}
+(function(){
+  const t=document.getElementById("machTable");if(!t)return;
+  MACHINES.forEach(function(m){
+    const k=mKey(m.id);
+    const tr=document.createElement("tr");
+    tr.innerHTML='<td style="text-align:left"><b>'+m.id+'</b> <span style="font-size:11.5px;color:var(--muted)">'+m.note+'</span></td>'+
+      '<td><span style="font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:20px;color:#fff;background:'+(m.press==="HP"?"#dc2626":"#0891b2")+'">'+m.press+'</span></td>'+
+      '<td><input type="text" inputmode="numeric" maxlength="5" placeholder="0800" id="mc_'+k+'_s" oninput="renderSteamCalc()" onblur="fixTime(this);renderSteamCalc()" style="width:100px;text-align:center"></td>'+
+      '<td><input type="text" inputmode="numeric" maxlength="5" placeholder="1600" id="mc_'+k+'_e" oninput="renderSteamCalc()" onblur="fixTime(this);renderSteamCalc()" style="width:100px;text-align:center"></td>'+
+      '<td id="mc_'+k+'_h">0</td>'+
+      '<td><input type="number" step="any" min="0" placeholder="0" id="mc_'+k+'_q" oninput="renderSteamCalc()" style="width:110px"> <span style="font-size:12px;color:var(--muted)">'+m.unit+'</span></td>';
+    t.appendChild(tr);
+  });
+})();
+function machHours(m){
+  const k=mKey(m.id);
+  const s=norm24(document.getElementById("mc_"+k+"_s").value);
+  const e=norm24(document.getElementById("mc_"+k+"_e").value);
+  if(!s||!e)return 0;
+  const sp=s.split(":"),ep=e.split(":");
+  let mins=(+ep[0]*60+ +ep[1])-(+sp[0]*60+ +sp[1]);
+  if(mins<=0)mins+=1440;
+  return Math.round(mins/60*100)/100;
+}
+function machQty(m){const v=parseFloat(document.getElementById("mc_"+mKey(m.id)+"_q").value);return isNaN(v)?0:v;}
+// คำนวณการปันส่วนเชื้อเพลิงให้แต่ละโรง
+function allocate(){
+  const mh={},mq={};let totH=0,fuelHP=0,fuelLP=0,lpgLP=0;
+  MACHINES.forEach(function(m){
+    const hh=machHours(m),q=machQty(m);
+    mh[m.id]=hh;mq[m.id]=q;totH+=hh;
+    if(m.press==="HP")fuelHP+=q;
+    else if(m.fuel==="fuel")fuelLP+=q;
+    else lpgLP+=q;
+  });
+  const ph={};let plantTot=0;
+  PLANTS.forEach(function(p){const hh=steamHours(p[0]);ph[p[0]]=hh;plantTot+=hh;});
+  // ACID ใช้ไอน้ำจากเครื่อง HP เท่านั้น ไม่รับจาก LP ในทุกกรณี
+  const hpRan=MACHINES.some(function(m){return m.press==="HP"&&mh[m.id]>0;});
+  const lpPlants=PLANTS.map(function(p){return p[0];}).filter(function(x){return x!==HP_PLANT;});
+  const lpBase=lpPlants.reduce(function(s,x){return s+(ph[x]||0);},0);
+  const alloc={};
+  PLANTS.forEach(function(p){alloc[p[0]]={hours:ph[p[0]]||0,fuel:0,lpg:0,src:""};});
+  if(fuelHP>0){alloc[HP_PLANT].fuel+=fuelHP;alloc[HP_PLANT].src="จากเครื่อง HP";}
+  if(lpBase>0){
+    lpPlants.forEach(function(x){
+      const r=(ph[x]||0)/lpBase;
+      alloc[x].fuel+=fuelLP*r; alloc[x].lpg+=lpgLP*r;
+      if(!alloc[x].src)alloc[x].src="ปันส่วนจากเครื่อง LP";
+    });
+  }
+  // ตรวจความสอดคล้อง
+  const warn=[];
+  if((ph[HP_PLANT]||0)>0 && !hpRan) warn.push("⚠ "+HP_PLANT+" ใช้ไอน้ำ "+fmt(ph[HP_PLANT])+" ชม. แต่ไม่มีเครื่อง HP (No.3/No.4) เดิน — ตรวจสอบการกรอก");
+  if(hpRan && (ph[HP_PLANT]||0)<=0) warn.push("⚠ เครื่อง HP เดินอยู่ แต่ยังไม่ได้กรอกเวลาที่ "+HP_PLANT+" ใช้ไอน้ำ");
+  if(fuelLP+lpgLP>0 && lpBase<=0) warn.push("⚠ มีเชื้อเพลิงจากเครื่อง LP แต่ยังไม่ได้กรอกเวลาโรงที่ใช้ไอน้ำ (ยกเว้น "+HP_PLANT+") — เชื้อเพลิงจะยังไม่ถูกปันส่วน");
+  return {mh:mh,mq:mq,totH:totH,fuelHP:fuelHP,fuelLP:fuelLP,lpgLP:lpgLP,ph:ph,plantTot:plantTot,alloc:alloc,hpRan:hpRan,lpBase:lpBase,warn:warn};
+}
+
+// ===== ส่วนผลิตไอน้ำ: เวลาแต่ละโรง -> ชั่วโมง, น้ำมันเตา ÷ รวมชั่วโมง = ลิตร/ชม. =====
+const PLANTS=[["NC","ไนโตรเซลลูโลส"],["NG","ไนโตรกลีเซอรีน"],["P","ดินส่งกระสุน"],["IMI","ดินส่งกระสุน (ค.)"],["B","ดินกระสุนเม็ดกลม"],["ACID","กรด/อีเธอร์"]];
+(function(){
+  const t=document.getElementById("steamTable");if(!t)return;
+  PLANTS.forEach(function(p){
+    var tr=document.createElement("tr");
+    tr.innerHTML='<td style="text-align:left"><b>'+p[0]+'</b> — '+p[1]+(p[0]===HP_PLANT?' <span style="font-size:11px;font-weight:800;color:#fff;background:#dc2626;padding:1px 7px;border-radius:20px">รับไอน้ำจาก HP เท่านั้น</span>':'')+'</td>'+
+      '<td><input type="text" inputmode="numeric" maxlength="5" placeholder="0800" id="f_st_'+p[0]+'_start" oninput="renderSteamCalc()" onblur="fixTime(this);renderSteamCalc()" style="width:110px;text-align:center"></td>'+
+      '<td><input type="text" inputmode="numeric" maxlength="5" placeholder="1600" id="f_st_'+p[0]+'_end" oninput="renderSteamCalc()" onblur="fixTime(this);renderSteamCalc()" style="width:110px;text-align:center"></td>'+
+      '<td id="st_h_'+p[0]+'">0</td>';
+    t.appendChild(tr);
+  });
+})();
+function steamHours(code){
+  var s=norm24(document.getElementById("f_st_"+code+"_start").value);
+  var e=norm24(document.getElementById("f_st_"+code+"_end").value);
+  if(!s||!e)return 0;
+  var sp=s.split(":"),ep=e.split(":");
+  var mins=(+ep[0]*60+ +ep[1])-(+sp[0]*60+ +sp[1]);
+  if(mins<=0)mins+=1440; // <0 = ข้ามเที่ยงคืน · =0 (เริ่ม=เลิก กรอกครบทั้งคู่) = เดินครบวง 24 ชม.
+  return Math.round(mins/60*100)/100;
+}
+function renderSteamCalc(){
+  var A=allocate();
+  MACHINES.forEach(function(m){document.getElementById("mc_"+mKey(m.id)+"_h").textContent=fmt(A.mh[m.id]);});
+  PLANTS.forEach(function(p){document.getElementById("st_h_"+p[0]).textContent=fmt(A.ph[p[0]]);});
+  document.getElementById("machTotH").textContent=fmt(A.totH);
+  document.getElementById("machTotFuel").textContent=fmt(A.fuelHP+A.fuelLP);
+  document.getElementById("machTotLpg").textContent=fmt(A.lpgLP);
+  document.getElementById("steamTotH").textContent=fmt(A.plantTot);
+  document.getElementById("steamLphr").textContent=A.lpBase>0?fmt(A.fuelLP/A.lpBase):"0";
+  // ตารางสรุปสด: วันนี้โรงไหนใช้เท่าไร
+  var head='<tr><th>โรงงาน</th><th>ชม.ใช้ไอน้ำ</th><th>สัดส่วน</th><th>น้ำมันเตา (ลิตร)</th><th>LPG (กก.)</th><th>ที่มา</th></tr>';
+  var rows=PLANTS.filter(function(p){var a=A.alloc[p[0]];return a.hours>0||a.fuel>0||a.lpg>0;});
+  var body=rows.map(function(p){
+    var a=A.alloc[p[0]];
+    // ACID ไม่เข้าร่วมปันส่วน LP จึงไม่มีสัดส่วนเสมอ
+    var pct=(p[0]===HP_PLANT)?"—":(A.lpBase>0?fmt(a.hours/A.lpBase*100)+"%":"—");
+    return '<tr><td style="text-align:left"><b>'+p[0]+'</b> '+p[1]+'</td><td>'+fmt(a.hours)+'</td><td>'+pct+'</td>'+
+      '<td'+(a.fuel>0?' style="font-weight:700;color:#ea580c"':'')+'>'+(a.fuel>0?fmt(a.fuel):"–")+'</td>'+
+      '<td'+(a.lpg>0?' style="font-weight:700;color:#0891b2"':'')+'>'+(a.lpg>0?fmt(a.lpg):"–")+'</td>'+
+      '<td style="text-align:left;font-size:12px;color:var(--muted)">'+(a.src||"—")+'</td></tr>';
+  }).join("");
+  if(rows.length){
+    var tf=rows.reduce(function(s,p){return s+A.alloc[p[0]].fuel;},0);
+    var tl=rows.reduce(function(s,p){return s+A.alloc[p[0]].lpg;},0);
+    body+='<tr style="font-weight:800;background:#f1f5f9"><td>รวม</td><td>'+fmt(A.plantTot)+'</td><td>100%</td><td>'+fmt(tf)+'</td><td>'+fmt(tl)+'</td><td></td></tr>';
+  }else body='<tr><td colspan="6" class="empty">กรอกเวลาเดินเครื่องและเวลาที่โรงใช้ไอน้ำ แล้วผลจะแสดงที่นี่ทันที</td></tr>';
+  document.getElementById("allocTable").innerHTML=head+body;
+  var wb=document.getElementById("steamWarn");
+  if(wb){if(A.warn&&A.warn.length){wb.style.display="";wb.innerHTML=A.warn.join("<br>");}else wb.style.display="none";}
+}
+function saveSteam(){
+  var date=document.getElementById("f_steam_date").value;
+  if(!date){toast("เลือกวันที่ก่อน");return;}
+  var user=document.getElementById("f_steam_user").value.trim()||(currentUser?currentUser.username:"");
+  var A=allocate(), month=date.slice(0,7);
+  var totFuel=A.fuelHP+A.fuelLP;
+  if(A.totH<=0 && A.plantTot<=0 && totFuel<=0 && A.lpgLP<=0){toast("ยังไม่มีข้อมูลให้บันทึก");return;}
+  // 1) ชั่วโมงเดินเครื่อง + เชื้อเพลิงรายเครื่อง -> ชีต machine
+  var nMach=0;
+  MACHINES.forEach(function(m){
+    var k=mKey(m.id), hh=A.mh[m.id], q=A.mq[m.id];
+    if(hh<=0&&q<=0)return;
+    var rec={id:uid(),date:date,month:month,machine:m.id,
+      t_start:norm24(document.getElementById("mc_"+k+"_s").value),
+      t_end:norm24(document.getElementById("mc_"+k+"_e").value),
+      hours:hh,fuel_type:(m.fuel==="fuel"?"น้ำมันเตา":"LPG"),fuel_qty:q,user:user};
+    machine.push(rec);mcsave();pushRow("machine",rec);nMach++;
+  });
+  // 2) การปันส่วนรายโรง -> ชีต boiler
+  PLANTS.forEach(function(p){
+    var a=A.alloc[p[0]];
+    if(a.hours<=0&&a.fuel<=0&&a.lpg<=0)return;
+    var rec={id:uid(),month:month,date:date,item:p[0],hours:a.hours,
+      liters:Math.round(a.fuel*100)/100,lpg:Math.round(a.lpg*100)/100,user:user};
+    boiler.push(rec);bsave();pushRow("boiler",rec);
+  });
+  // 3) ยอดรวมของวัน -> ชีต records (ให้ตารางไวท์บอร์ด/ภาพรวมแสดงถูก)
+  if(totFuel>0||A.lpgLP>0){
+    var rr=Object.assign({id:uid(),date:date,user:user},blankRec());
+    rr.fuel=totFuel; rr.lpg=A.lpgLP;
+    records.push(rr);save();pushRow("records",rr);
+  }
+  // ล้างฟอร์ม
+  MACHINES.forEach(function(m){var k=mKey(m.id);["_s","_e","_q"].forEach(function(x){document.getElementById("mc_"+k+x).value="";});});
+  PLANTS.forEach(function(p){document.getElementById("f_st_"+p[0]+"_start").value="";document.getElementById("f_st_"+p[0]+"_end").value="";});
+  renderSteamCalc();
+  toast("บันทึกแล้ว · เครื่อง "+nMach+" เครื่อง · น้ำมันเตา "+fmt(totFuel)+" ล. · LPG "+fmt(A.lpgLP)+" กก.");
+}
+// ตั้งวันที่วันนี้ให้ทุกกล่อง
+["f_elec_date","f_water_date","f_steam_date"].forEach(function(id){var el=document.getElementById(id);if(el)el.valueAsDate=new Date();});
+
+function delRec(id){if(confirm("ลบรายการนี้?")){records=records.filter(r=>r.id!==id);save();pushDel("records",id);renderRecords();toast("ลบแล้ว");}}
+
+// ---- period grouping ----
+function periodKey(dateStr,period){
+  const d=new Date(dateStr+"T00:00:00");
+  if(period==="day")return dateStr;
+  if(period==="month")return dateStr.slice(0,7);
+  const t=new Date(d);const day=(t.getDay()+6)%7;t.setDate(t.getDate()-day);
+  const p=n=>String(n).padStart(2,"0");
+  return t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" (สัปดาห์)";
+}
+function inRange(dateStr){
+  const f=document.getElementById("s_from").value,t=document.getElementById("s_to").value;
+  if(f&&dateStr<f)return false;if(t&&dateStr>t)return false;return true;
+}
+function aggregate(period){
+  const map={};
+  records.filter(r=>inRange(r.date)).forEach(r=>{
+    const k=periodKey(r.date,period);
+    if(!map[k]){map[k]={key:k};FIELDS.forEach(([f])=>map[k][f]=0);}
+    FIELDS.forEach(([f])=>map[k][f]+=(+r[f]||0));
+  });
+  return Object.values(map).sort((a,b)=>a.key<b.key?-1:1);
+}
+
+let chartE,chartC;
+// มุมมองรายเดือน: รวมข้อมูลจริงจากทุกแหล่ง (ไฟฟ้า=report, น้ำมันเตา=boiler, สารเคมี=records) เหมือนตารางไวท์บอร์ด
+function summaryMonthlyRows(){
+  const {val}=matrixAgg();
+  const fromM=(document.getElementById("s_from").value||"").slice(0,7);
+  const toM=(document.getElementById("s_to").value||"").slice(0,7);
+  const set={};
+  report.forEach(r=>{if(r.month)set[r.month]=1;});
+  boiler.forEach(r=>{if(r.month)set[r.month]=1;});
+  records.forEach(r=>{if(r.date)set[r.date.slice(0,7)]=1;});
+  const months=Object.keys(set).filter(m=>(!fromM||m>=fromM)&&(!toM||m<=toM)).sort();
+  return months.map(m=>{const o={key:thMonth(m)};MATRIX.forEach(c=>o[c[0]]=val(m,c));return o;});
+}
+function renderSummary(){
+  const period=document.getElementById("s_period").value;
+  let rows,tot={};
+  if(period==="month"){
+    rows=summaryMonthlyRows();
+    FIELDS.forEach(([f])=>tot[f]=rows.reduce((s,r)=>s+(+r[f]||0),0));
+  }else{
+    rows=aggregate(period);
+    FIELDS.forEach(([f])=>tot[f]=records.filter(r=>inRange(r.date)).reduce((s,r)=>s+(+r[f]||0),0));
+  }
+  const genTot=tot.solar_roof+tot.solar_farm, useTot=tot.use_office+tot.use_pump;
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi green"><div class="l">ผลิตไฟรวม</div><div class="v">${fmt(genTot)}</div><div class="u">kWh</div></div>
+    <div class="kpi cyan"><div class="l">ใช้ไฟฟ้ารวม</div><div class="v">${fmt(useTot)}</div><div class="u">kWh</div></div>
+    <div class="kpi orange"><div class="l">Fuel oil</div><div class="v">${fmt(tot.fuel)}</div><div class="u">ลิตร</div></div>
+    <div class="kpi orange"><div class="l">LPG</div><div class="v">${fmt(tot.lpg)}</div><div class="u">kg</div></div>
+    <div class="kpi"><div class="l">ALUM สารส้ม</div><div class="v">${fmt(tot.alum)}</div><div class="u">kg</div></div>
+    <div class="kpi"><div class="l">CaOH2 ปูนขาว</div><div class="v">${fmt(tot.caoh)}</div><div class="u">kg</div></div>
+    <div class="kpi"><div class="l">Sugar น้ำตาล</div><div class="v">${fmt(tot.sugar)}</div><div class="u">kg</div></div>`;
+
+  const labels=rows.map(r=>r.key);
+  if(chartE)chartE.destroy();
+  chartE=new Chart(document.getElementById("chartEnergy"),{type:"bar",
+    data:{labels,datasets:[
+      {label:"ผลิตไฟ (kWh)",data:rows.map(r=>r.solar_roof+r.solar_farm),backgroundColor:"#16a34a"},
+      {label:"ใช้ไฟฟ้า (kWh)",data:rows.map(r=>r.use_office+r.use_pump),backgroundColor:"#0891b2"}
+    ]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+  if(chartC)chartC.destroy();
+  chartC=new Chart(document.getElementById("chartChem"),{type:"line",
+    data:{labels,datasets:[
+      {label:"Fuel oil (L)",data:rows.map(r=>r.fuel),borderColor:"#ea580c",tension:.3},
+      {label:"ALUM (kg)",data:rows.map(r=>r.alum),borderColor:"#7c3aed",tension:.3},
+      {label:"Sugar (kg)",data:rows.map(r=>r.sugar),borderColor:"#db2777",tension:.3}
+    ]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+  const head="<tr><th>ช่วง</th>"+FIELDS.map(f=>`<th>${f[1]}<br>(${f[2]})</th>`).join("")+"</tr>";
+  const body=rows.map(r=>"<tr><td>"+r.key+"</td>"+FIELDS.map(f=>"<td>"+fmt(r[f[0]])+"</td>").join("")+"</tr>").join("")||
+    `<tr><td colspan="10" class="empty">ยังไม่มีข้อมูล</td></tr>`;
+  document.getElementById("sumTable").innerHTML=head+body;
+  renderMatrix();
+}
+["s_period","s_from","s_to"].forEach(id=>document.getElementById(id).onchange=renderSummary);
+
+// ===== เฟส 1: ตารางสรุปรายเดือน (แบบไวท์บอร์ด) =====
+// คอลัมน์ไฟฟ้าดึงจากชีต report (kWh) ก่อน ถ้าเดือนนั้นไม่มีค่อย fallback ไป records
+const MATRIX=[
+  ["solar_roof","Solar rooftop","kWh","report","pv2"],   // rooftop = โซลาร์ บก.รวท. (pv2)
+  ["solar_farm","Solar farm","kWh","report","pv1"],       // farm = โซลาร์ กองโรงงาน (pv1)
+  ["use_office","ใช้ไฟทั้งกอง (PEA)","kWh","report","rate_sum"],        // กรง.ฯ = ยอดรวม PEA (A+B+C)
+  ["use_pump","โรงสูบน้ำ","kWh","report","g2_kwh"],        // โรงสูบน้ำ = บิลโรงสูบน้ำเจ้าพระยา
+  ["fuel","Fuel oil","L","boiler"],
+  ["lpg","LPG","kg","records"],
+  ["alum","ALUM","kg","records"],
+  ["caoh","CaOH2","kg","records"],
+  ["sugar","Sugar","kg","records"]
+];
+function fyStartOf(ym){const p=String(ym||"").split("-");return (+p[1])>=10 ? +p[0] : +p[0]-1;}
+function fyLabel(sy){return "ปีงบ "+String((sy+1+543)%100).padStart(2,"0");}
+function fyMonths(sy){const a=[];for(let i=0;i<12;i++){const m=((9+i)%12)+1;const y=i<3?sy:sy+1;a.push(y+"-"+String(m).padStart(2,"0"));}return a;}
+// รับเฉพาะรูปแบบ YYYY-MM ที่สมเหตุสมผล (กันค่าที่เพี้ยนจากชีต เช่น ตัวเลขซีเรียลวันที่)
+function validYM(s){
+  if(!s)return null;
+  var t=String(s).slice(0,7);
+  if(!/^\d{4}-\d{2}$/.test(t))return null;
+  var y=+t.slice(0,4), m=+t.slice(5,7);
+  if(y<2015||y>2035||m<1||m>12)return null;
+  return t;
+}
+function availableFY(){
+  const set={};
+  const add=s=>{const t=validYM(s);if(t)set[fyStartOf(t)]=1;};
+  records.forEach(r=>add(r.date));
+  boiler.forEach(r=>add(r.month));
+  report.forEach(r=>add(r.month));
+  elecmonth.forEach(r=>add(r.month));
+  water.forEach(r=>add(r.date));
+  let ys=Object.keys(set).map(Number).filter(y=>y>=2015&&y<=2035).sort((a,b)=>b-a);
+  if(!ys.length)ys=[new Date().getMonth()>=9?new Date().getFullYear():new Date().getFullYear()-1];
+  return ys;
+}
+function fillFY(){
+  const sel=document.getElementById("fySelect");if(!sel||sel.dataset.done)return;
+  availableFY().forEach(sy=>{const o=document.createElement("option");o.value=sy;o.textContent=fyLabel(sy);sel.appendChild(o);});
+  sel.dataset.done="1";
+}
+function matrixAgg(){
+  const rec={};
+  const addRec=r=>{const m=(r.date||"").slice(0,7);if(!m)return;if(!rec[m])rec[m]={};MATRIX.forEach(c=>{rec[m][c[0]]=(rec[m][c[0]]||0)+(+r[c[0]]||0);});};
+  records.forEach(addRec);
+  water.forEach(r=>{const m=(r.date||"").slice(0,7);if(!m)return;if(!rec[m])rec[m]={};["alum","caoh","sugar"].forEach(k=>{rec[m][k]=(rec[m][k]||0)+(+r[k]||0);});});
+  const bo={};boiler.forEach(r=>{if(r.month)bo[r.month]=(bo[r.month]||0)+(+r.liters||0);});
+  const rp={};report.forEach(r=>{if(r.month)rp[r.month]=r;});
+  function repVal(m,c){var row=rp[m];if(!row)return null;
+    if(c[4]==="rate_sum"){var s=(+row.rate_a||0)+(+row.rate_b||0)+(+row.rate_c||0);return s>0?s:null;}
+    var v=+row[c[4]]||0;return v>0?v:null;}
+  return {val:(m,c)=>{
+    if(c[3]==="boiler")return bo[m]||0;
+    if(c[3]==="report"){var rv=repVal(m,c);return rv!==null?rv:((rec[m]&&rec[m][c[0]])||0);}
+    return (rec[m]&&rec[m][c[0]])||0;
+  }};
+}
+function renderMatrix(){
+  fillFY();
+  const sel=document.getElementById("fySelect");if(!sel)return;
+  const sy=+sel.value||availableFY()[0];
+  const months=fyMonths(sy);
+  const {val}=matrixAgg();
+  const dash=v=> v===0 ? "–" : fmt(v);
+  const head="<tr><th>เดือน</th>"+MATRIX.map(c=>`<th>${c[1]}<br>(${c[2]})</th>`).join("")+"</tr>";
+  let body=months.map(m=>"<tr><td>"+thMonth(m)+"</td>"+MATRIX.map(c=>"<td>"+dash(val(m,c))+"</td>").join("")+"</tr>").join("");
+  const tot=MATRIX.map(c=>months.reduce((s,m)=>s+val(m,c),0));
+  body+="<tr><td><b>Total</b></td>"+tot.map(v=>"<td><b>"+fmt(v)+"</b></td>").join("")+"</tr>";
+  document.getElementById("matrixTable").innerHTML=head+body;
+}
+document.getElementById("btnMatrixCsv").onclick=()=>{
+  const sel=document.getElementById("fySelect");const sy=+sel.value||availableFY()[0];const months=fyMonths(sy);
+  const {val}=matrixAgg();
+  const header=["เดือน",...MATRIX.map(c=>c[1]+"("+c[2]+")")];
+  const lines=[header.join(",")];
+  months.forEach(m=>lines.push([thMonth(m),...MATRIX.map(c=>val(m,c))].join(",")));
+  lines.push(["Total",...MATRIX.map(c=>months.reduce((s,m)=>s+val(m,c),0))].join(","));
+  const blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="matrix_"+fyLabel(sy).replace(/\s/g,"")+".csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
+};
+
+document.getElementById("btnCsv").onclick=()=>{
+  const period=document.getElementById("s_period").value;
+  const rows=aggregate(period);
+  const header=["ช่วง",...FIELDS.map(f=>f[1]+"("+f[2]+")")];
+  const lines=[header.join(",")].concat(rows.map(r=>[r.key,...FIELDS.map(f=>r[f[0]])].join(",")));
+  const blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="summary_"+period+".csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
+};
+
+// ===== เฟส 2: แดชบอร์ด ไฟฟ้า / สารเคมี (มุมมองสรุปรายเดือน) =====
+function aggRecordsMonthly(fields){
+  const map={};
+  records.forEach(r=>{const m=(r.date||"").slice(0,7);if(!m)return;if(!map[m]){map[m]={};fields.forEach(f=>map[m][f]=0);}fields.forEach(f=>map[m][f]+=(+r[f]||0));});
+  const months=Object.keys(map).sort();
+  const tot={};fields.forEach(f=>tot[f]=months.reduce((s,m)=>s+map[m][f],0));
+  return {months,map,tot};
+}
+function monthTable(elId, months, map, tot, F){
+  const keys=F.map(x=>x[0]);
+  const head="<tr><th>เดือน</th>"+F.map(f=>`<th>${f[1]}</th>`).join("")+"</tr>";
+  let body=months.map(m=>"<tr><td>"+thMonth(m)+"</td>"+keys.map(k=>"<td>"+fmt(map[m][k])+"</td>").join("")+"</tr>").join("");
+  if(months.length)body+="<tr><td><b>Total</b></td>"+keys.map(k=>"<td><b>"+fmt(tot[k])+"</b></td>").join("")+"</tr>";
+  else body=`<tr><td colspan="${F.length+1}" class="empty">ยังไม่มีข้อมูล</td></tr>`;
+  document.getElementById(elId).innerHTML=head+body;
+}
+let chartEl2,chartCh2;
+// ไฟฟ้ารายเดือนแบบรวมแหล่ง (report ก่อน, fallback records) ให้ตรงกับตารางไวท์บอร์ด
+function elecMonthlyMerged(){
+  const {val}=matrixAgg();
+  const EK=["solar_roof","solar_farm","use_office","use_pump"];
+  const set={};report.forEach(r=>{if(r.month)set[r.month]=1;});records.forEach(r=>{if(r.date)set[r.date.slice(0,7)]=1;});
+  const months=Object.keys(set).sort();
+  const map={};months.forEach(m=>{map[m]={};MATRIX.forEach(c=>{if(EK.indexOf(c[0])>=0)map[m][c[0]]=val(m,c);});});
+  const tot={};EK.forEach(k=>tot[k]=months.reduce((s,m)=>s+(map[m][k]||0),0));
+  return {months,map,tot};
+}
+function renderElec(){
+  const F=[["solar_roof","Solar rooftop"],["solar_farm","Solar farm"],["use_office","ใช้ไฟทั้งกอง (PEA)"],["use_pump","โรงสูบน้ำ"]];
+  const {months,map,tot}=elecMonthlyMerged();
+  const fEl=document.getElementById("elecFilter");const fm=fEl?fEl.value:"";
+  const s=(fm&&map[fm])?map[fm]:tot;
+  document.getElementById("elecKpis").innerHTML=`
+    <div class="kpi green"><div class="l">ผลิตไฟรวม</div><div class="v">${fmt((s.solar_roof||0)+(s.solar_farm||0))}</div><div class="u">kWh</div></div>
+    <div class="kpi cyan"><div class="l">ใช้ไฟฟ้ารวม</div><div class="v">${fmt((s.use_office||0)+(s.use_pump||0))}</div><div class="u">kWh</div></div>
+    <div class="kpi"><div class="l">Solar rooftop</div><div class="v">${fmt(s.solar_roof||0)}</div><div class="u">kWh</div></div>
+    <div class="kpi"><div class="l">Solar farm</div><div class="v">${fmt(s.solar_farm||0)}</div><div class="u">kWh</div></div>`;
+  if(chartEl2)chartEl2.destroy();
+  chartEl2=new Chart(document.getElementById("chartElec"),{type:"bar",data:{labels:months.map(thMonth),datasets:[
+    {label:"ผลิตไฟ (kWh)",data:months.map(m=>map[m].solar_roof+map[m].solar_farm),backgroundColor:"#16a34a"},
+    {label:"ใช้ไฟฟ้า (kWh)",data:months.map(m=>map[m].use_office+map[m].use_pump),backgroundColor:"#0891b2"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+  monthTable("elecTable",months,map,tot,F);
+}
+// สารเคมีรายเดือน = records + water (แท็บน้ำประปา) รวมกัน
+function chemMonthlyMerged(keys){
+  const map={};
+  const add=(m,r)=>{if(!map[m]){map[m]={};keys.forEach(k=>map[m][k]=0);}keys.forEach(k=>map[m][k]+=(+r[k]||0));};
+  records.forEach(r=>{const m=(r.date||"").slice(0,7);if(m)add(m,r);});
+  water.forEach(r=>{const m=(r.date||"").slice(0,7);if(m)add(m,r);});
+  const months=Object.keys(map).sort();
+  const tot={};keys.forEach(k=>tot[k]=months.reduce((s,m)=>s+map[m][k],0));
+  return {months,map,tot};
+}
+function renderChem(){
+  const F=[["alum","ALUM สารส้ม"],["caoh","CaOH₂ ปูนขาว"],["sugar","Sugar น้ำตาล"]];
+  const {months,map,tot}=chemMonthlyMerged(F.map(x=>x[0]));
+  const fEl=document.getElementById("chemFilter");const fm=fEl?fEl.value:"";
+  const s=(fm&&map[fm])?map[fm]:tot;
+  document.getElementById("st_alum_remain").value=bstock.alum_remain||0;
+  document.getElementById("st_caoh_remain").value=bstock.caoh_remain||0;
+  document.getElementById("chemKpis").innerHTML=`
+    <div class="kpi"><div class="l">ALUM สารส้ม</div><div class="v">${fmt(s.alum||0)}</div><div class="u">kg</div></div>
+    <div class="kpi"><div class="l">CaOH₂ ปูนขาว</div><div class="v">${fmt(s.caoh||0)}</div><div class="u">kg</div></div>
+    <div class="kpi"><div class="l">Sugar น้ำตาล</div><div class="v">${fmt(s.sugar||0)}</div><div class="u">kg</div></div>
+    <div class="kpi green"><div class="l">สารส้มคงเหลือ</div><div class="v">${fmt(bstock.alum_remain||0)}</div><div class="u">kg</div></div>`;
+  if(chartCh2)chartCh2.destroy();
+  chartCh2=new Chart(document.getElementById("chartChemSum"),{type:"line",data:{labels:months.map(thMonth),datasets:[
+    {label:"ALUM",data:months.map(m=>map[m].alum),borderColor:"#7c3aed",tension:.3},
+    {label:"CaOH₂",data:months.map(m=>map[m].caoh),borderColor:"#0891b2",tension:.3},
+    {label:"Sugar",data:months.map(m=>map[m].sugar),borderColor:"#db2777",tension:.3}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+  monthTable("chemTable",months,map,tot,F);
+}
+["st_alum_remain","st_caoh_remain"].forEach(id=>{var el=document.getElementById(id);if(el)el.onchange=()=>{
+  bstock.alum_remain=+document.getElementById("st_alum_remain").value||0;
+  bstock.caoh_remain=+document.getElementById("st_caoh_remain").value||0;
+  stsave();pushStock(bstock);renderChem();
+};});
+function exportMonthly(name,F){
+  const keys=F.map(x=>x[0]);const {months,map,tot}=aggRecordsMonthly(keys);
+  const lines=[["เดือน",...F.map(f=>f[1])].join(",")];
+  months.forEach(m=>lines.push([thMonth(m),...keys.map(k=>map[m][k])].join(",")));
+  lines.push(["Total",...keys.map(k=>tot[k])].join(","));
+  const blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="summary_"+name+".csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
+}
+document.getElementById("btnElecCsv").onclick=()=>exportMonthly("ไฟฟ้า",[["solar_roof","Solar rooftop"],["solar_farm","Solar farm"],["use_office","ใช้ไฟทั้งกอง (PEA)"],["use_pump","โรงสูบน้ำ"]]);
+document.getElementById("btnChemCsv").onclick=()=>exportMonthly("สารเคมี",[["alum","ALUM"],["caoh","CaOH2"],["sugar","Sugar"]]);
+
+// ---- records ----
+function renderRecords(){
+  const fEl=document.getElementById("recFilter");
+  const filter=fEl?fEl.value:"";
+  let list=[...records];
+  if(filter)list=list.filter(r=>r.date===filter);
+  const sorted=list.sort((a,b)=>a.date<b.date?1:-1);
+  const head="<tr><th>วันที่</th><th>ผู้บันทึก</th>"+FIELDS.map(f=>`<th>${f[1]}</th>`).join("")+"<th></th></tr>";
+  const body=sorted.map(r=>"<tr><td>"+r.date+"</td><td>"+(r.user||"-")+"</td>"+
+    FIELDS.map(f=>"<td>"+fmt(r[f[0]])+"</td>").join("")+
+    (window._isAdmin?`<td><span class="del" style="color:var(--brand)" onclick="editRecord('${r.id}')">แก้ไข</span> · <span class="del" onclick="delRec('${r.id}')">ลบ</span></td>`:`<td>-</td>`)+"</tr>").join("")||
+    `<tr><td colspan="12" class="empty">ไม่พบรายการ</td></tr>`;
+  document.getElementById("recTable").innerHTML=head+body;
+}
+document.getElementById("recFilterClear").onclick=()=>{document.getElementById("recFilter").value="";renderRecords();};
+document.getElementById("btnWipe").onclick=()=>{if(confirm("ลบข้อมูลทั้งหมด?")){records=[];save();renderRecords();toast("ลบทั้งหมดแล้ว");}};
+
+// ===== แก้ไขรายการที่บันทึกไปแล้ว =====
+let editingId=null;
+function editRecord(id){
+  const r=records.find(x=>x.id===id);if(!r)return;
+  editingId=id;
+  document.getElementById("editTitle").textContent="แก้ไขรายการ "+r.date;
+  document.getElementById("e_date").value=r.date;
+  document.getElementById("e_user").value=r.user||"";
+  const shown=FIELDS.filter(f=>(+r[f[0]]||0)!==0);
+  const list=shown.length?shown:FIELDS; // ถ้าเป็น 0 หมด แสดงทุกช่อง
+  document.getElementById("editFields").innerHTML='<div class="grid">'+
+    list.map(f=>`<div><label>${f[1]} (${f[2]})</label><input type="number" step="any" id="e_${f[0]}" value="${+r[f[0]]||0}"></div>`).join("")+'</div>';
+  document.getElementById("editModal").style.display="flex";
+}
+function closeEdit(){document.getElementById("editModal").style.display="none";editingId=null;}
+function saveRecordEdit(){
+  if(!editingId)return;
+  const r=records.find(x=>x.id===editingId);if(!r)return;
+  r.date=document.getElementById("e_date").value||r.date;
+  r.user=document.getElementById("e_user").value.trim();
+  FIELDS.forEach(f=>{var el=document.getElementById("e_"+f[0]);if(el)r[f[0]]=parseFloat(el.value)||0;});
+  save();pushRow("records",r);
+  closeEdit();renderRecords();toast("แก้ไขแล้ว");
+}
+
+// ---- sample data (จากตารางไวท์บอร์ด: ยอดรายเดือน ต.ค.68 - มิ.ย.69) ----
+function seed(){
+  const m=[
+    ["2025-10-15",0,0,89700,1508,17910,0,1650,0,0],
+    ["2025-11-15",0,0,92880,1774,15900,0,1400,0,0],
+    ["2025-12-15",0,0,82320,2119,5600,0,2400,0,0],
+    ["2026-01-15",0,0,85500,2412,16950,0,2400,0,0],
+    ["2026-02-15",2356,13424,71700,1580,25010,0,2050,0,0],
+    ["2026-03-15",4519,23424,77640,2480,23650,0,2250,0,10],
+    ["2026-04-15",5132,21843,57240,2200,6740,0,2400,0,80],
+    ["2026-05-15",5370,22450,66480,2480,10710,0,2000,0,80],
+    ["2026-06-15",5190,22600,62700,1472,10820,0,2075,0,70]
+  ];
+  records=m.map(a=>({id:uid(),date:a[0],user:"ตัวอย่าง",
+    solar_roof:a[1],solar_farm:a[2],use_office:a[3],use_pump:a[4],
+    fuel:a[5],lpg:a[6],alum:a[7],caoh:a[8],sugar:a[9]}));
+  save();
+}
+
+document.getElementById("s_from").value="2025-10-01";
+document.getElementById("s_to").value="2026-12-31";
+
+/* ============ BOILER (น้ำมันเตา) ============ */
+const BKEY="agri_boiler_v1", BSTOCK="agri_boiler_stock_v1";
+const BITEMS=["NC","NG","P","IMI","B","ACID"];
+// เดือนปีงบ 69: ต.ค.68 - ก.ย.69  => 2025-10 ... 2026-09
+const BMONTHS=["2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09"];
+const THMON=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function thMonth(ym){const s=String(ym||"");if(!/^\d{4}-\d{2}/.test(s))return s||"-";const[y,m]=s.split("-");return THMON[+m-1]+String((+y+543)%100);}
+let boiler, bstock;
+// โหลดข้อมูลจาก PDF ปีงบ 69 เป็นฐานข้อมูลตั้งต้นอัตโนมัติ (ครั้งแรก)
+if(localStorage.getItem(BKEY)===null){bseed();}
+else{boiler=JSON.parse(localStorage.getItem(BKEY));
+     bstock=JSON.parse(localStorage.getItem(BSTOCK)||'{"recv":250000,"issue":75000,"remain":225512}');}
+if(!bstock)bstock={};
+["recv","issue","remain","alum_remain","caoh_remain"].forEach(k=>{if(bstock[k]===undefined)bstock[k]=0;});
+function bsave(){localStorage.setItem(BKEY,JSON.stringify(boiler));}
+function stsave(){localStorage.setItem(BSTOCK,JSON.stringify(bstock));}
+
+// fill month dropdown + stock inputs
+BMONTHS.forEach(ym=>{const o=document.createElement("option");o.value=ym;o.textContent=thMonth(ym);document.getElementById("b_month").appendChild(o);
+  var o2=document.createElement("option");o2.value=ym;o2.textContent=thMonth(ym);var bf=document.getElementById("bRecFilter");if(bf)bf.appendChild(o2);
+  ["elecFilter","chemFilter"].forEach(function(fid){var ff=document.getElementById(fid);if(ff){var oo=document.createElement("option");oo.value=ym;oo.textContent=thMonth(ym);ff.appendChild(oo);}});});
+function loadStockInputs(){document.getElementById("st_recv").value=bstock.recv;document.getElementById("st_issue").value=bstock.issue;document.getElementById("st_remain").value=bstock.remain;}
+["st_recv","st_issue","st_remain"].forEach(id=>document.getElementById(id).onchange=()=>{
+  bstock.recv=+document.getElementById("st_recv").value||0;
+  bstock.issue=+document.getElementById("st_issue").value||0;
+  bstock.remain=+document.getElementById("st_remain").value||0;
+  stsave();pushStock(bstock);renderBoiler();
+});
+
+document.getElementById("boilerForm").onsubmit=e=>{
+  e.preventDefault();
+  const id=document.getElementById("b_id").value;
+  const rec={id:id||uid(),month:document.getElementById("b_month").value,item:document.getElementById("b_item").value,
+    hours:+document.getElementById("b_hours").value||0,liters:+document.getElementById("b_liters").value||0,
+    lpg:+document.getElementById("b_lpg").value||0,
+    user:(document.getElementById("b_user").value||"").trim()||(currentUser?currentUser.username:""),
+    date:document.getElementById("b_date").value||""};
+  if(rec.date)rec.month=rec.date.slice(0,7);
+  if(id){boiler[boiler.findIndex(r=>r.id===id)]=rec;toast("แก้ไขแล้ว");}
+  else{boiler.push(rec);toast("บันทึกแล้ว");}
+  bsave();pushRow("boiler",rec);bClearForm();renderBoiler();
+};
+function bClearForm(){document.getElementById("boilerForm").reset();document.getElementById("b_id").value="";}
+document.getElementById("bClear").onclick=bClearForm;
+function bEdit(id){const r=boiler.find(x=>x.id===id);if(!r)return;
+  document.getElementById("b_id").value=r.id;document.getElementById("b_month").value=r.month;
+  document.getElementById("b_item").value=r.item;document.getElementById("b_hours").value=r.hours;document.getElementById("b_liters").value=r.liters;
+  document.getElementById("b_lpg").value=r.lpg||"";document.getElementById("b_user").value=r.user||"";
+  document.getElementById("b_date").value=r.date||"";
+  window.scrollTo(0,0);toast("ดึงค่ามาแก้ในฟอร์มด้านบนแล้ว แก้เสร็จกด 💾 บันทึก");}
+function bDel(id){if(confirm("ลบรายการนี้?")){boiler=boiler.filter(r=>r.id!==id);bsave();pushDel("boiler",id);renderBoiler();}}
+
+let chartB;
+function renderBoiler(){
+  loadStockInputs();
+  const totH=boiler.reduce((s,r)=>s+r.hours,0), totL=boiler.reduce((s,r)=>s+r.liters,0);
+  const avg=totH>0?totL/totH:0;
+  document.getElementById("bKpis").innerHTML=`
+    <div class="kpi orange"><div class="l">รวมชั่วโมง</div><div class="v">${fmt(totH)}</div><div class="u">ชม.</div></div>
+    <div class="kpi orange"><div class="l">รวมน้ำมันเตา</div><div class="v">${fmt(totL)}</div><div class="u">ลิตร</div></div>
+    <div class="kpi"><div class="l">เฉลี่ยการใช้</div><div class="v">${fmt(avg)}</div><div class="u">ลิตร/ชม.</div></div>
+    <div class="kpi green"><div class="l">คงเหลือ/ใช้ได้</div><div class="v">${fmt(bstock.remain)}</div><div class="u">ลิตร</div></div>
+    <div class="kpi cyan"><div class="l">LPG รวม</div><div class="v">${fmt(boiler.reduce((s,r)=>s+(+r.lpg||0),0)+records.reduce((s,r)=>s+(+r.lpg||0),0))}</div><div class="u">kg</div></div>`;
+
+  // pivot item x month (liters), only months that have data
+  const usedMonths=BMONTHS.filter(m=>boiler.some(r=>r.month===m));
+  const cell={};boiler.forEach(r=>{cell[r.item+"|"+r.month]=(cell[r.item+"|"+r.month]||0)+r.liters;});
+  let head="<tr><th>รายการ</th>"+usedMonths.map(m=>`<th>${thMonth(m)}</th>`).join("")+"<th>รวม</th></tr>";
+  let body=BITEMS.map(it=>{
+    let rowSum=0;
+    const tds=usedMonths.map(m=>{const v=cell[it+"|"+m]||0;rowSum+=v;return "<td>"+fmt(v)+"</td>";}).join("");
+    return `<tr><td>${it}</td>${tds}<td><b>${fmt(rowSum)}</b></td></tr>`;
+  }).join("");
+  const colSum=usedMonths.map(m=>boiler.filter(r=>r.month===m).reduce((s,r)=>s+r.liters,0));
+  const grand=colSum.reduce((a,b)=>a+b,0);
+  body+=`<tr><td><b>รวม</b></td>${colSum.map(v=>"<td><b>"+fmt(v)+"</b></td>").join("")}<td><b>${fmt(grand)}</b></td></tr>`;
+  document.getElementById("bPivot").innerHTML=head+(boiler.length?body:`<tr><td class="empty">ยังไม่มีข้อมูล กด "โหลดข้อมูลจาก PDF"</td></tr>`);
+
+  // chart monthly liters
+  if(chartB)chartB.destroy();
+  chartB=new Chart(document.getElementById("chartBoiler"),{type:"bar",
+    data:{labels:usedMonths.map(thMonth),datasets:[{label:"น้ำมันเตา (ลิตร)",data:colSum,backgroundColor:"#ea580c"}]},
+    options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+
+  // records (มีตัวกรองเดือน)
+  const bf=document.getElementById("bRecFilter");const bfilt=bf?bf.value:"";
+  let blist=[...boiler];if(bfilt)blist=blist.filter(r=>r.month===bfilt);
+  const sorted=blist.sort((a,b)=>a.month<b.month?-1:a.month>b.month?1:a.item<b.item?-1:1);
+  const rh="<tr><th>เดือน</th><th>รายการ</th><th>ชม.</th><th>น้ำมันเตา (ล.)</th><th>LPG (กก.)</th><th>ผู้บันทึก</th><th></th></tr>";
+  const rb=sorted.map(r=>`<tr><td>${thMonth(r.month)}</td><td>${r.item}</td><td>${fmt(r.hours)}</td><td>${fmt(r.liters)}</td><td>${fmt(r.lpg||0)}</td><td>${r.user||"-"}</td>
+    <td><span class="del" onclick="bEdit('${r.id}')">แก้</span> · <span class="del" onclick="bDel('${r.id}')">ลบ</span></td></tr>`).join("")||
+    `<tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr>`;
+  document.getElementById("bRec").innerHTML=rh+rb;
+}
+
+function bseed(){
+  // จาก PDF: [item] : [ [month, hours, liters], ... ]
+  const data={
+    NC:  [["2025-10",0,0],["2025-11",0,0],["2025-12",0,0],["2026-01",0,0],["2026-02",0,0]],
+    NG:  [["2025-10",26.5,1940],["2025-11",129.0,5396],["2025-12",106.5,4282],["2026-01",185.5,7124],["2026-02",418.5,18232]],
+    P:   [["2025-10",125.5,6760],["2025-11",155.5,6364],["2025-12",20.0,968],["2026-01",45.0,2507],["2026-02",139.5,6201]],
+    IMI: [["2025-10",0,0],["2025-11",13.5,554],["2025-12",9.5,350],["2026-01",0,0],["2026-02",15.5,577]],
+    B:   [["2025-10",0,0],["2025-11",93.5,3586],["2025-12",0,0],["2026-01",32.5,1649],["2026-02",0,0]],
+    ACID:[["2025-10",149.5,9210],["2025-11",0,0],["2025-12",0,0],["2026-01",107.5,5670],["2026-02",0,0]]
+  };
+  boiler=[];
+  Object.entries(data).forEach(([item,rows])=>rows.forEach(([m,h,l])=>{
+    if(h||l)boiler.push({id:uid(),month:m,item,hours:h,liters:l});
+  }));
+  bstock={recv:250000,issue:75000,remain:225512};
+  bsave();stsave();
+}
+loadStockInputs();
+
+/* ============ เฟส A: ไฟฟ้ารายเดือน (จดมิเตอร์) ============ */
+const EMKEY="agri_elecmonth_v1";
+const STATIONS=["T.1","T.2","T.3","T.4","T.5","T.7","T.8","P28","T9(IMI)"];
+// สถานีที่หน้าปัดมิเตอร์อ่านเป็น kWh (ต้องหาร 1,000 เพื่อให้เป็น MWh เท่ากับสถานีอื่น)
+const KWH_METERS={"P28":1};
+function emScale(st){return KWH_METERS[st]?1000:1;}
+let elecmonth=JSON.parse(localStorage.getItem(EMKEY)||"[]");
+function emsave(){localStorage.setItem(EMKEY,JSON.stringify(elecmonth));}
+function emId(m,st){return "em_"+m+"_"+st;}
+// เติม dropdown เดือน
+(function(){var sel=document.getElementById("em_month");if(sel){BMONTHS.forEach(function(ym){var o=document.createElement("option");o.value=ym;o.textContent=thMonth(ym);sel.appendChild(o);});
+  sel.onchange=renderElecMonthRows;}})();
+function emGet(m,st){return elecmonth.find(function(r){return r.month===m&&r.station===st;});}
+function renderElecMonthRows(){
+  var sel=document.getElementById("em_month");if(!sel)return;var m=sel.value||BMONTHS[0];
+  var t=document.getElementById("emTable");
+  var rows='<tr><th>สถานีไฟฟ้า</th><th>เลขก่อนจด</th><th>เลขหลังจด</th><th>จำนวนใช้ (MWh)</th><th>หมายเหตุ</th></tr>';
+  STATIONS.forEach(function(st){
+    var ex=emGet(m,st)||{};
+    rows+='<tr><td style="text-align:left"><b>'+st+'</b>'+(KWH_METERS[st]?' <span style="font-size:11px;color:#b45309;background:#fffbeb;padding:1px 6px;border-radius:5px">มิเตอร์ kWh · ระบบหาร 1,000 ให้</span>':'')+'</td>'+
+      '<td><input type="number" step="any" id="emp_'+st+'" value="'+(ex.prev!==undefined&&ex.prev!==""?ex.prev:"")+'" oninput="emCalc()" style="width:110px"></td>'+
+      '<td><input type="number" step="any" id="emc_'+st+'" value="'+(ex.curr!==undefined&&ex.curr!==""?ex.curr:"")+'" oninput="emCalc()" style="width:110px"></td>'+
+      '<td id="emu_'+st+'">'+(ex.usage!==undefined?fmt(ex.usage):"0")+'</td>'+
+      '<td><input type="text" id="emn_'+st+'" value="'+(ex.note||"")+'" style="width:120px"></td></tr>';
+  });
+  t.innerHTML=rows;emCalc();
+}
+function emUsage(st){
+  var p=parseFloat(document.getElementById("emp_"+st).value);
+  var c=parseFloat(document.getElementById("emc_"+st).value);
+  if(isNaN(p)||isNaN(c)||document.getElementById("emc_"+st).value==="")return null;
+  return Math.round((c-p)/emScale(st)*1000)/1000;   // P28 อ่านเป็น kWh -> หาร 1,000 ให้เป็น MWh
+}
+function emCalc(){
+  var tot=0;
+  STATIONS.forEach(function(st){var u=emUsage(st);document.getElementById("emu_"+st).textContent=(u===null?"0":fmt(u));if(u!==null&&u>0)tot+=u;});
+  document.getElementById("emTotal").textContent=fmt(tot);
+}
+function saveElecMonth(){
+  var m=document.getElementById("em_month").value;
+  var user=(document.getElementById("em_user").value||"").trim();
+  var saved=0,pushList=[];
+  STATIONS.forEach(function(st){
+    var pv=document.getElementById("emp_"+st).value, cv=document.getElementById("emc_"+st).value;
+    var note=document.getElementById("emn_"+st).value.trim();
+    if(pv===""&&cv===""&&!note)return;               // เว้นว่าง = ข้าม
+    var u=emUsage(st); if(u===null)u=0;
+    var rec={id:emId(m,st),month:m,station:st,prev:pv===""?"":parseFloat(pv),curr:cv===""?"":parseFloat(cv),usage:u,note:note,user:user||(currentUser?currentUser.username:"")};
+    var i=elecmonth.findIndex(function(r){return r.month===m&&r.station===st;});
+    if(i>=0)elecmonth[i]=rec;else elecmonth.push(rec);
+    pushList.push(rec);saved++;
+  });
+  emsave();renderElecMonth();
+  if(user){toast("บันทึกไฟฟ้าเดือน "+thMonth(m)+" ("+saved+" สถานี) โดย "+user);}else{toast("บันทึกไฟฟ้าเดือน "+thMonth(m)+" ("+saved+" สถานี)");}
+  if(CLOUD()){pushList.forEach(function(r){pushRow("elecmonth",r);});}
+}
+let chartEM;
+function renderElecMonth(){
+  renderElecMonthRows();
+  // pivot สถานี × เดือน
+  var usedMonths=BMONTHS.filter(function(m){return elecmonth.some(function(r){return r.month===m;});});
+  var cell={};elecmonth.forEach(function(r){cell[r.station+"|"+r.month]=(+r.usage||0);});
+  var head='<tr><th>สถานี</th>'+usedMonths.map(function(m){return '<th>'+thMonth(m)+'</th>';}).join("")+'<th>รวม</th></tr>';
+  var body=STATIONS.map(function(st){var rs=0;var tds=usedMonths.map(function(m){var v=cell[st+"|"+m]||0;rs+=v;var bad=v>200;return "<td"+(bad?' style="background:#fee2e2;color:#b91c1c;font-weight:700" title="สูงผิดปกติ อาจลืมแปลงหน่วย kWh เป็น MWh"':"")+">"+(v?fmt(v):"–")+"</td>";}).join("");return '<tr><td style="text-align:left">'+st+'</td>'+tds+'<td><b>'+fmt(rs)+'</b></td></tr>';}).join("");
+  var colSum=usedMonths.map(function(m){return elecmonth.filter(function(r){return r.month===m;}).reduce(function(s,r){return s+(+r.usage||0);},0);});
+  var grand=colSum.reduce(function(a,b){return a+b;},0);
+  body+='<tr><td><b>รวม</b></td>'+colSum.map(function(v){return "<td><b>"+fmt(v)+"</b></td>";}).join("")+'<td><b>'+fmt(grand)+'</b></td></tr>';
+  document.getElementById("emPivot").innerHTML=head+(elecmonth.length?body:'<tr><td class="empty">ยังไม่มีข้อมูล</td></tr>');
+  if(chartEM)chartEM.destroy();
+  chartEM=new Chart(document.getElementById("chartElecMon"),{type:"bar",data:{labels:usedMonths.map(thMonth),datasets:[{label:"ใช้ไฟฟ้ารวม (MWh)",data:colSum,backgroundColor:"#0891b2"}]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+}
+document.getElementById("btnEmCsv").onclick=function(){
+  var usedMonths=BMONTHS.filter(function(m){return elecmonth.some(function(r){return r.month===m;});});
+  var lines=[["month","station","prev","curr","usage","note"].join(",")];
+  elecmonth.slice().sort(function(a,b){return a.month<b.month?-1:a.month>b.month?1:0;}).forEach(function(r){lines.push([r.month,r.station,r.prev,r.curr,r.usage,(r.note||"").replace(/,/g,";")].join(","));});
+  var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="elecmonth.csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
+};
+
+/* ============ เฟส B: รายงานรายเดือน ============ */
+const MCKEY="agri_machine_v1";
+let machine=JSON.parse(localStorage.getItem(MCKEY)||"[]");
+function mcsave(){localStorage.setItem(MCKEY,JSON.stringify(machine));}
+const LOGKEY="agri_loginlog_v1";
+let loginlog=JSON.parse(localStorage.getItem(LOGKEY)||"[]");
+function lgsave(){localStorage.setItem(LOGKEY,JSON.stringify(loginlog.slice(-300)));}
+const RPKEY="agri_report_v1";
+let report=JSON.parse(localStorage.getItem(RPKEY)||"[]");
+function rpsave(){localStorage.setItem(RPKEY,JSON.stringify(report));}
+const RPFIELDS=["rate_a","rate_b","rate_c","days","elec_max","elec_max_day","elec_min","elec_min_day",
+  "c_repair","c_powder","c_acid","c_nc","c_ng","c_p28","g1_kwh","g1_baht","g2_kwh","g2_baht",
+  "pv1","grid1","pv2","grid2","doc_no","doc_date","signer","signer_pos"];
+const RPTEXT=["elec_max_day","elec_min_day","doc_no","doc_date","signer","signer_pos"];
+(function(){var sel=document.getElementById("rp_month");if(sel){BMONTHS.forEach(function(ym){var o=document.createElement("option");o.value=ym;o.textContent=thMonth(ym);sel.appendChild(o);});
+  // ตั้งค่าเริ่มต้นเป็นเดือนล่าสุดที่มีข้อมูล boiler/elecmonth
+  }})();
+function rpGet(m){return report.find(function(r){return r.month===m;});}
+function loadReportForm(){
+  var sel=document.getElementById("rp_month");if(!sel)return;var m=sel.value||BMONTHS[0];
+  var r=rpGet(m)||{};
+  RPFIELDS.forEach(function(f){var el=document.getElementById("rp_"+f);if(el)el.value=(r[f]!==undefined&&r[f]!==null)?r[f]:"";});
+  if(!document.getElementById("rp_days").value){document.getElementById("rp_days").value=daysInMonth(m);}
+}
+function saveReport(){
+  var m=document.getElementById("rp_month").value;
+  var rec={id:m,month:m};
+  RPFIELDS.forEach(function(f){var el=document.getElementById("rp_"+f);if(!el)return;
+    var v=el.value.trim();rec[f]=(RPTEXT.indexOf(f)>=0)?v:(v===""?"":parseFloat(v)||0);});
+  var i=report.findIndex(function(r){return r.month===m;});
+  if(i>=0)report[i]=rec;else report.push(rec);
+  rpsave();if(CLOUD())pushRow("report",rec);
+  toast("บันทึกข้อมูลรายงานเดือน "+thMonth(m)+" แล้ว");
+}
+function daysInMonth(ym){var p=ym.split("-");return new Date(+p[0],+p[1],0).getDate();}
+function thDigit(s){var t={"0":"๐","1":"๑","2":"๒","3":"๓","4":"๔","5":"๕","6":"๖","7":"๗","8":"๘","9":"๙"};return String(s).replace(/[0-9]/g,function(d){return t[d];});}
+function N(v){v=+v||0;return v.toLocaleString("en-US",{maximumFractionDigits:2});}
+
+// ประกอบ HTML รายงานราชการ (ผนวก ก–ฉ) สำหรับเดือนที่เลือก
+function buildReportHTML(m){
+  var r=rpGet(m)||{};
+  var sy=fyStartOf(m);var months=fyMonths(sy);
+  var beYear=(sy+1)+543; // ปีงบ พ.ศ.
+  var monName=thMonth(m);
+  // ---- ผนวก ก ----
+  var kSum={a:0,b:0,c:0,s:0};
+  var kRows=months.map(function(mm){var rr=rpGet(mm)||{};var a=+rr.rate_a||0,b=+rr.rate_b||0,c=+rr.rate_c||0,s=a+b+c;var d=+rr.days||daysInMonth(mm);var avg=d>0&&s>0?s/d:0;kSum.a+=a;kSum.b+=b;kSum.c+=c;kSum.s+=s;
+    return '<tr><td class="l">'+thMonth(mm)+'</td><td>'+(a?N(a):"")+'</td><td>'+(b?N(b):"")+'</td><td>'+(c?N(c):"")+'</td><td>'+(s?N(s):"")+'</td><td>'+(avg?N(avg):"")+'</td></tr>';}).join("");
+  var kTable='<table class="rt"><tr><th>เดือน</th><th>RATE A</th><th>RATE B</th><th>RATE C</th><th>ผลรวม</th><th>เฉลี่ย/วัน</th></tr>'+kRows+
+    '<tr class="sum"><td class="l">ผลรวม</td><td>'+N(kSum.a)+'</td><td>'+N(kSum.b)+'</td><td>'+N(kSum.c)+'</td><td>'+N(kSum.s)+'</td><td>-</td></tr></table>';
+  // ---- ผนวก ข ----
+  var d=+r.days||daysInMonth(m);var sMon=(+r.rate_a||0)+(+r.rate_b||0)+(+r.rate_c||0);var avgMon=d>0&&sMon>0?sMon/d:0;
+  var kBox='<ol class="tight"><li>ปริมาณการใช้ไฟฟ้า<u>สูงสุด</u>ในรอบเดือน '+monName+' = '+N(r.elec_max)+' kWh'+(r.elec_max_day?' ('+r.elec_max_day+')':'')+'</li>'+
+    '<li>ปริมาณการใช้ไฟฟ้า<u>ต่ำสุด</u>ในรอบเดือน '+monName+' = '+N(r.elec_min)+' kWh'+(r.elec_min_day?' ('+r.elec_min_day+')':'')+'</li>'+
+    '<li>ปริมาณการใช้ไฟฟ้า<u>เฉลี่ย</u>ในรอบเดือน '+monName+' = '+N(avgMon)+' kWh/day</li></ol>';
+  // ---- ผนวก ค ----
+  var cCols=[["c_repair","โรงงานการซ่อมและสนับสนุน"],["c_powder","โรงงานผลิตดินส่งกระสุน"],["c_acid","โรงงานกรดและอีเธอร์"],["c_nc","โรงงานผลิตไนโตรเซลลูโลส"],["c_ng","โรงงานผลิตไนโตรกลีเซอรีน"],["c_p28","โรงงานผลิตกระสุน (P28)"]];
+  var cTot={};cCols.forEach(function(c){cTot[c[0]]=0;});
+  var cRows=months.map(function(mm){var rr=rpGet(mm)||{};var rowSum=0;var tds=cCols.map(function(c){var v=+rr[c[0]]||0;cTot[c[0]]+=v;rowSum+=v;return '<td>'+(v?N(v):"")+'</td>';}).join("");return '<tr><td class="l">'+thMonth(mm)+'</td>'+tds+'<td>'+(rowSum?N(rowSum):"")+'</td></tr>';}).join("");
+  var cGrand=0;cCols.forEach(function(c){cGrand+=cTot[c[0]];});
+  var cTable='<table class="rt"><tr><th>เดือน</th>'+cCols.map(function(c){return '<th>'+c[1]+'</th>';}).join("")+'<th>รวม</th></tr>'+cRows+
+    '<tr class="sum"><td class="l">Total</td>'+cCols.map(function(c){return '<td>'+N(cTot[c[0]])+'</td>';}).join("")+'<td>'+N(cGrand)+'</td></tr></table>';
+  // ---- ผนวก ง ----
+  var gRows=months.map(function(mm){var rr=rpGet(mm)||{};var k1=+rr.g1_kwh||0,b1=+rr.g1_baht||0,k2=+rr.g2_kwh||0,b2=+rr.g2_baht||0;
+    if(!k1&&!b1&&!k2&&!b2)return "";
+    return '<tr><td class="l">'+thMonth(mm)+'</td><td>'+(k1?N(k1):"")+'</td><td>'+(b1?N(b1):"")+'</td><td>'+(k1?N(b1/k1):"")+'</td><td>'+(k2?N(k2):"")+'</td><td>'+(b2?N(b2):"")+'</td><td>'+(k2?N(b2/k2):"")+'</td></tr>';}).join("");
+  var gTable='<table class="rt"><tr><th rowspan="2">เดือน</th><th colspan="3">บิลค่าไฟฟ้าภายในกองโรงงาน</th><th colspan="3">บิลค่าไฟฟ้าโรงสูบน้ำเจ้าพระยา</th></tr>'+
+    '<tr><th>kWh</th><th>บาท</th><th>บาท/kWh</th><th>kWh</th><th>บาท</th><th>บาท/kWh</th></tr>'+(gRows||'<tr><td colspan="7" class="l">— ยังไม่มีข้อมูลบิล —</td></tr>')+'</table>';
+  // ---- ผนวก จ (น้ำมันเตา จาก boiler) ----
+  var jItems=[["P","ดินส่งกระสุน (P)"],["ACID","กรดและอีเธอร์ (ACID)"],["NC","ไนโตรเซลลูโลส (NC)"],["NG","ไนโตรกลีเซอรีน (NG)"],["IMI","IMI"],["B","Ball Powder/Propellant"]];
+  var jUsed=months.filter(function(mm){return boiler.some(function(x){return x.month===mm;});});
+  var jcell={};boiler.forEach(function(x){jcell[x.item+"|"+x.month]=(jcell[x.item+"|"+x.month]||0)+(+x.liters||0);});
+  var jRows=jUsed.map(function(mm){var rowSum=0;var tds=jItems.map(function(it){var v=jcell[it[0]+"|"+mm]||0;rowSum+=v;return '<td>'+(v?N(v):"")+'</td>';}).join("");return '<tr><td class="l">'+thMonth(mm)+'</td>'+tds+'<td>'+(rowSum?N(rowSum):"")+'</td></tr>';}).join("");
+  var jTot=jItems.map(function(it){return jUsed.reduce(function(s,mm){return s+(jcell[it[0]+"|"+mm]||0);},0);});
+  var jGrand=jTot.reduce(function(a,b){return a+b;},0);
+  var jTable='<table class="rt"><tr><th>เดือน</th>'+jItems.map(function(it){return '<th>'+it[1]+'</th>';}).join("")+'<th>รวม (ลิตร)</th></tr>'+
+    (jRows||'<tr><td colspan="8" class="l">— ยังไม่มีข้อมูลน้ำมันเตา —</td></tr>')+
+    '<tr class="sum"><td class="l">Total</td>'+jTot.map(function(v){return '<td>'+N(v)+'</td>';}).join("")+'<td>'+N(jGrand)+'</td></tr></table>';
+  // ---- ผนวก ฉ (โซลาร์) ----
+  function solarTable(pvKey,gridKey,title){
+    var rows=months.map(function(mm){var rr=rpGet(mm)||{};var pv=+rr[pvKey]||0,gr=+rr[gridKey]||0;if(!pv&&!gr)return "";
+      var ratio=(pv+gr)>0?pv/(pv+gr)*100:0;var dd=+rr.days||daysInMonth(mm);var perDay=dd>0?pv/dd:0;var save=pv*4.5;
+      return '<tr><td class="l">'+thMonth(mm)+'</td><td>'+N(pv)+'</td><td>'+N(gr)+'</td><td>'+N(ratio)+'%</td><td>'+N(perDay)+'</td><td>'+N(save)+'</td></tr>';}).join("");
+    return '<div class="phead">'+title+'</div><table class="rt"><tr><th>เดือน</th><th>ผลิต PV</th><th>From grid (PEA)</th><th>Ratio</th><th>ผลิตเฉลี่ย/วัน (kWh)</th><th>ผลประหยัด (บาท)</th></tr>'+
+      (rows||'<tr><td colspan="6" class="l">— ยังไม่มีข้อมูลโซลาร์ —</td></tr>')+'</table><div class="note">หมายเหตุ: ประมาณการค่าไฟฟ้าเฉลี่ย 4.5 บาท/หน่วย · Ratio = สัดส่วนไฟที่ผลิตจากโซลาร์</div>';
+  }
+  // ---- ประกอบทั้งฉบับ ----
+  return '<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานพลังงาน '+monName+'</title><style>'+
+    '@page{size:A4;margin:2cm 2cm 2cm 2.5cm}'+
+    'body{font-family:"TH Sarabun New","TH SarabunPSK","Sarabun",serif;font-size:16pt;color:#000;line-height:1.5;margin:0}'+
+    '.memo-h{font-weight:bold}.center{text-align:center}.right{text-align:right}'+
+    'u{text-underline-offset:2px}'+
+    'ol.tight{margin:4px 0 4px 0;padding-left:22px}ol.tight li{margin:2px 0}'+
+    '.pgtitle{text-align:center;font-weight:bold;margin:6px 0}'+
+    '.phead{font-weight:bold;margin:10px 0 4px}'+
+    'table.rt{border-collapse:collapse;width:100%;font-size:13.5pt;margin:6px 0}'+
+    'table.rt th,table.rt td{border:1px solid #000;padding:3px 5px;text-align:center}'+
+    'table.rt td.l{text-align:left}table.rt tr.sum{font-weight:bold;background:#eee}'+
+    '.note{font-size:12.5pt;margin:4px 0 0}'+
+    '.appx{page-break-before:always;padding-top:6px}'+
+    '.sig{margin-top:26px;text-align:center}'+
+    '.no-print{margin:12px 0}'+
+    '@media print{.no-print{display:none}}'+
+    '</style></head><body>'+
+    '<div class="no-print center"><button onclick="window.print()" style="font-size:14pt;padding:8px 20px">🖨 พิมพ์ / บันทึกเป็น PDF</button></div>'+
+    // หัวบันทึกข้อความ
+    '<div class="center memo-h" style="font-size:20pt">บันทึกข้อความ</div>'+
+    '<div><b>ส่วนราชการ</b> คณะทำงานด้านการประหยัดพลังงานของ กรง.รวท.อท.ศอพท.</div>'+
+    '<div><b>ที่</b> '+(r.doc_no||"พ./"+thDigit(String(beYear).slice(-2)))+' &nbsp;&nbsp; <b>วันที่</b> '+(r.doc_date||"")+'</div>'+
+    '<div><b>เรื่อง</b> รายงานผลการติดตามการใช้พลังงานภายใน กรง.รวท.อท.ศอพท.</div>'+
+    '<div style="margin-top:6px">เรียน &nbsp; ผอ.กรง.รวท.อท.ศอพท.</div>'+
+    '<p style="text-indent:2.5em;margin:8px 0">๑. ตามคำสั่ง กรง.รวท.อท.ศอพท. (เฉพาะ) ที่ ๑๘/๖๖ ลง ๒๖ ต.ค.๖๖ เรื่อง แต่งตั้งคณะทำงานด้านการประหยัดพลังงานของ กรง.รวท.อท.ศอพท. โดยคณะทำงานฯ มีหน้าที่ติดตามการใช้พลังงานไฟฟ้า ให้ข้อเสนอแนะและกำหนดนโยบายและมาตรการประหยัดพลังงาน พร้อมรายงานความก้าวหน้าให้ ผอ.กรง.รวท.อท.ศอพท.</p>'+
+    '<p style="text-indent:2.5em;margin:8px 0">๒. คณะทำงานฯ ขอรายงานสรุปผลการติดตามการใช้พลังงานประจำเดือน '+monName+' ตามผนวก ก – ฉ ที่แนบมาพร้อมนี้</p>'+
+    '<p style="text-indent:2.5em;margin:8px 0">จึงเรียนมาเพื่อกรุณาทราบ</p>'+
+    '<div class="sig">'+(r.signer||"")+'<br>'+(r.signer_pos||"รอง ผอ.กรง.รวท.อท.ศอพท. / หน.คณะทำงาน")+'</div>'+
+    // ผนวก ก
+    '<div class="appx"><div class="pgtitle">ผนวก ก<br>ปริมาณการใช้พลังงานไฟฟ้าของกองโรงงานในรอบปีงบประมาณ พ.ศ. '+thDigit(beYear)+'<br>(ไม่รวมการใช้ไฟโรงสูบน้ำเจ้าพระยา)</div>'+kTable+
+    '<div class="note">ที่มา: https://www.amr.pea.co.th/ · RATE A = On Peak (0900–2200) · RATE B = Off Peak (2200–0900) · RATE C = Holiday</div></div>'+
+    // ผนวก ข
+    '<div class="appx"><div class="pgtitle">ผนวก ข<br>ปริมาณการใช้พลังงานไฟฟ้าของกองโรงงานในรอบเดือน '+monName+'</div>'+kBox+'</div>'+
+    // ผนวก ค
+    '<div class="appx"><div class="pgtitle">ผนวก ค<br>ตารางบันทึกการใช้ไฟฟ้าของอาคารที่พักเจ้าหน้าที่ และอาคารโรงงานผลิตกระสุน (P28)</div>'+cTable+
+    '<div class="note">หมายเหตุ: สรุปผลการใช้พลังงานไฟฟ้าจากแบบบันทึกของแต่ละโรงงาน · P28 อ่านมิเตอร์ที่ตู้ Distribution board</div></div>'+
+    // ผนวก ง
+    '<div class="appx"><div class="pgtitle">ผนวก ง<br>ตารางค่าไฟฟ้าเฉลี่ยต่อหน่วย</div>'+gTable+'<div class="note">หมายเหตุ: อ้างอิงบิลค่าไฟฟ้าประจำเดือน</div></div>'+
+    // ผนวก จ
+    '<div class="appx"><div class="pgtitle">ผนวก จ<br>ตารางปริมาณการใช้น้ำมันเตา</div>'+jTable+'<div class="note">หมายเหตุ: อ้างอิงการคิดสัดส่วนปริมาณการใช้งานจากส่วนเครื่องกำเนิดไอน้ำ (ดึงจากระบบแถบเชื้อเพลิง)</div></div>'+
+    // ผนวก ฉ
+    '<div class="appx"><div class="pgtitle">ผนวก ฉ<br>ระบบผลิตกระแสไฟฟ้าด้วยเซลล์แสงอาทิตย์</div>'+
+    solarTable("pv1","grid1","ฉ-๑ ระบบผลิตไฟฟ้าโซลาร์เซลล์ กองโรงงาน")+
+    solarTable("pv2","grid2","ฉ-๒ ระบบผลิตไฟฟ้าโซลาร์เซลล์ บก.รวท.ฯ")+'</div>'+
+    '</body></html>';
+}
+function openReportPrint(){
+  var m=document.getElementById("rp_month").value;
+  var w=window.open("","_blank");
+  if(!w){toast("เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตป๊อปอัปแล้วลองใหม่");return;}
+  w.document.open();w.document.write(buildReportHTML(m));w.document.close();
+}
+function exportReportDocx(){
+  var m=document.getElementById("rp_month").value;
+  var html=buildReportHTML(m).replace('<div class="no-print center"><button onclick="window.print()" style="font-size:14pt;padding:8px 20px">🖨 พิมพ์ / บันทึกเป็น PDF</button></div>','');
+  var blob=new Blob(['﻿'+html],{type:"application/msword"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="รายงานพลังงาน_"+thMonth(m).replace(/[^฀-๿0-9]/g,"")+".doc";a.click();
+  toast("ดาวน์โหลดไฟล์ Word แล้ว (เปิดด้วย Microsoft Word)");
+}
+
+/* ============ น้ำประปา (water) ============ */
+const WKEY="agri_water_v1";
+let water=JSON.parse(localStorage.getItem(WKEY)||"[]");
+function wsave(){localStorage.setItem(WKEY,JSON.stringify(water));}
+(function(){var el=document.getElementById("w_date");if(el)el.valueAsDate=new Date();
+  var wf=document.getElementById("wRecFilter");if(wf)BMONTHS.forEach(function(ym){var o=document.createElement("option");o.value=ym;o.textContent=thMonth(ym);wf.appendChild(o);});})();
+function wV(id){var v=parseFloat(document.getElementById(id).value);return isNaN(v)?null:v;}
+// กรอกมิเตอร์ -> คำนวณผลิตน้ำ
+function wFromMeter(){
+  var p=wV("w_mprev"),c=wV("w_mcurr");
+  if(p!==null&&c!==null){var prod=Math.round((c-p)*1000)/1000;document.getElementById("w_produced").value=prod;}
+  wValidate();
+}
+// กรอกผลิตน้ำ -> คำนวณมิเตอร์หลัง
+function wFromProduced(){
+  var p=wV("w_mprev"),prod=wV("w_produced");
+  if(p!==null&&prod!==null){document.getElementById("w_mcurr").value=Math.round((p+prod)*1000)/1000;}
+  wValidate();
+}
+// เลขมิเตอร์ก่อน = มิเตอร์หลังของวันล่าสุดที่บันทึกไว้
+function wAutoPrev(){
+  var el=document.getElementById("w_mprev");if(!el||el.value!=="")return;
+  var d=document.getElementById("w_date").value;
+  var before=water.filter(function(r){return r.date<d&&r.m_curr!==""&&r.m_curr!=null;}).sort(function(a,b){return a.date<b.date?1:-1;});
+  if(before.length){el.value=before[0].m_curr;wFromProduced();}
+}
+function wValidate(){
+  var msgs=[],box=document.getElementById("wWarn");
+  var prod=wV("w_produced"),h=wV("w_hours");
+  var to=norm24(document.getElementById("w_topen").value),tc=norm24(document.getElementById("w_tclose").value);
+  if(prod!==null&&prod<0)msgs.push("⚠ ผลิตน้ำติดลบ — ตรวจเลขมิเตอร์");
+  if(prod!==null&&prod>3000)msgs.push("⚠ ผลิตน้ำสูงผิดปกติ (>3,000) — ตรวจเลขมิเตอร์");
+  if(to&&tc&&h!==null){
+    var sp=to.split(":"),ep=tc.split(":");
+    var span=((+ep[0]*60+ +ep[1])-(+sp[0]*60+ +sp[1]))/60;
+    if(span<0)span+=24;
+    if(h>span+0.25)msgs.push("⚠ ชม.ทำงาน ("+h+") มากกว่าช่วงเวลาเปิด-ปิด ("+fmt(span)+" ชม.)");
+  }
+  if(msgs.length){box.innerHTML=msgs.join("<br>");box.style.display="";}else{box.style.display="none";}
+  document.getElementById("wProduced").textContent=fmt(prod||0);
+  return msgs.length===0;
+}
+// วันไม่เดินเครื่องผลิต: ผลิตน้ำ=0 · มิเตอร์ไม่ขยับ · เว้นน้ำดิบ/เวลา/สารเคมี/ชม.
+function wNoProd(){
+  ["w_raw3000","w_topen","w_tclose","w_hours","w_alum","w_caoh","w_sugar"].forEach(function(id){document.getElementById(id).value="";});
+  document.getElementById("w_produced").value=0;
+  var p=wV("w_mprev");if(p!==null)document.getElementById("w_mcurr").value=p;
+  if(!document.getElementById("w_note").value.trim())document.getElementById("w_note").value="ไม่มีการผลิต";
+  wValidate();toast("ตั้งเป็น 'ไม่มีการผลิต' แล้ว กด 💾 บันทึก");
+}
+function saveWater(){
+  var date=document.getElementById("w_date").value;
+  if(!date){toast("เลือกวันที่ก่อน");return;}
+  if(!wValidate()&&!confirm("ข้อมูลมีจุดผิดปกติ (ดูคำเตือนสีแดง) ยืนยันบันทึกหรือไม่?"))return;
+  var id=document.getElementById("w_id").value;
+  var mprev=wV("w_mprev"),mcurr=wV("w_mcurr"),prod=wV("w_produced");
+  var rec={id:id||uid(),date:date,user:document.getElementById("w_user").value.trim(),
+    raw3000:wV("w_raw3000")===null?"":wV("w_raw3000"),
+    m_prev:mprev===null?"":mprev, m_curr:mcurr===null?"":mcurr,
+    produced:prod===null?0:prod,
+    t_open:norm24(document.getElementById("w_topen").value), t_close:norm24(document.getElementById("w_tclose").value),
+    alum:wV("w_alum")||0, caoh:wV("w_caoh")||0, sugar:wV("w_sugar")||0,
+    hours:wV("w_hours")===null?"":wV("w_hours"),
+    note:document.getElementById("w_note").value.trim()};
+  var i=water.findIndex(function(r){return r.id===rec.id;});
+  if(i>=0){water[i]=rec;toast("แก้ไขแล้ว");}else{water.push(rec);toast("บันทึกน้ำประปา "+date+" แล้ว");}
+  wsave();if(CLOUD())pushRow("water",rec);wClearForm();renderWater();
+}
+function wClearForm(){["w_user","w_raw3000","w_mprev","w_mcurr","w_produced","w_topen","w_tclose","w_alum","w_caoh","w_sugar","w_hours","w_note","w_id"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
+  document.getElementById("w_date").valueAsDate=new Date();document.getElementById("wProduced").textContent="0";
+  document.getElementById("wWarn").style.display="none";wAutoPrev();}
+document.getElementById("wClear").onclick=wClearForm;
+document.getElementById("w_date").addEventListener("change",function(){document.getElementById("w_mprev").value="";wAutoPrev();});
+function wEdit(id){var r=water.find(function(x){return x.id===id;});if(!r)return;
+  document.getElementById("w_id").value=r.id;document.getElementById("w_date").value=r.date;document.getElementById("w_user").value=r.user||"";
+  document.getElementById("w_raw3000").value=r.raw3000||"";document.getElementById("w_mprev").value=r.m_prev;document.getElementById("w_mcurr").value=r.m_curr;
+  document.getElementById("w_produced").value=(r.produced!==undefined?r.produced:"");
+  document.getElementById("w_topen").value=r.t_open||"";document.getElementById("w_tclose").value=r.t_close||"";
+  document.getElementById("w_alum").value=r.alum||"";document.getElementById("w_caoh").value=r.caoh||"";document.getElementById("w_sugar").value=r.sugar||"";
+  document.getElementById("w_hours").value=r.hours||"";document.getElementById("w_note").value=r.note||"";
+  wValidate();window.scrollTo(0,0);toast("ดึงค่ามาแก้ในฟอร์มด้านบนแล้ว");}
+function wDel(id){if(confirm("ลบรายการนี้?")){water=water.filter(function(r){return r.id!==id;});wsave();pushDel("water",id);renderWater();}}
+function waterMonthly(){
+  var K=["produced","alum","caoh","sugar","hours"];
+  var map={};water.forEach(function(r){var m=(r.date||"").slice(0,7);if(!m)return;
+    if(!map[m]){map[m]={days:0};K.forEach(function(k){map[m][k]=0;});}
+    K.forEach(function(k){map[m][k]+=(+r[k]||0);});map[m].days++;});
+  // รวมสารเคมีที่เคยบันทึกใน records (ข้อมูลเก่า) เข้าด้วย จะได้ตรงกับตารางไวท์บอร์ด
+  records.forEach(function(r){var m=(r.date||"").slice(0,7);if(!m)return;
+    if(!map[m]){map[m]={days:0};K.forEach(function(k){map[m][k]=0;});}
+    ["alum","caoh","sugar"].forEach(function(k){map[m][k]+=(+r[k]||0);});});
+  var months=Object.keys(map).sort();
+  var tot={days:0};K.forEach(function(k){tot[k]=0;});
+  months.forEach(function(m){K.forEach(function(k){tot[k]+=map[m][k];});tot.days+=map[m].days;});
+  return {months:months,map:map,tot:tot};
+}
+let chartW,chartAR,chartWS;
+function renderWater(){
+  var A=waterMonthly();
+  document.getElementById("wKpis").innerHTML=
+    '<div class="kpi cyan"><div class="l">ผลิตน้ำรวม</div><div class="v">'+fmt(A.tot.produced)+'</div><div class="u">ลบ.ม.</div></div>'+
+    '<div class="kpi"><div class="l">สารส้มรวม</div><div class="v">'+fmt(A.tot.alum)+'</div><div class="u">กก.</div></div>'+
+    '<div class="kpi"><div class="l">ปูนขาวรวม</div><div class="v">'+fmt(A.tot.caoh)+'</div><div class="u">กก.</div></div>'+
+    '<div class="kpi"><div class="l">น้ำตาลรวม</div><div class="v">'+fmt(A.tot.sugar)+'</div><div class="u">กก.</div></div>'+
+    '<div class="kpi orange"><div class="l">ชม.ทำงานรวม</div><div class="v">'+fmt(A.tot.hours)+'</div><div class="u">ชม.</div></div>'+
+    '<div class="kpi green"><div class="l">จำนวนวันบันทึก</div><div class="v">'+fmt(A.tot.days)+'</div><div class="u">วัน</div></div>';
+  var head='<tr><th>เดือน</th><th>ผลิตน้ำ (ลบ.ม.)</th><th>สารส้ม (กก.)</th><th>ปูนขาว (กก.)</th><th>น้ำตาล (กก.)</th><th>ชม.ทำงาน</th><th>วันบันทึก</th></tr>';
+  var body=A.months.map(function(m){var v=A.map[m];return '<tr><td>'+thMonth(m)+'</td><td>'+fmt(v.produced)+'</td><td>'+fmt(v.alum)+'</td><td>'+fmt(v.caoh)+'</td><td>'+fmt(v.sugar)+'</td><td>'+fmt(v.hours)+'</td><td>'+v.days+'</td></tr>';}).join("");
+  if(A.months.length)body+='<tr class="sum" style="font-weight:700;background:#f1f5f9"><td>รวม</td><td>'+fmt(A.tot.produced)+'</td><td>'+fmt(A.tot.alum)+'</td><td>'+fmt(A.tot.caoh)+'</td><td>'+fmt(A.tot.sugar)+'</td><td>'+fmt(A.tot.hours)+'</td><td>'+A.tot.days+'</td></tr>';
+  else body='<tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr>';
+  document.getElementById("wMonth").innerHTML=head+body;
+  var lab=A.months.map(thMonth);
+  // กราฟ 1: ผลิตน้ำประปา (แท่งเดี่ยว)
+  if(chartW)chartW.destroy();
+  chartW=new Chart(document.getElementById("chartWater"),{type:"bar",data:{labels:lab,datasets:[
+    {label:"ผลิตน้ำประปา (ลบ.ม.)",data:A.months.map(function(m){return A.map[m].produced;}),backgroundColor:"#0891b2"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{title:{display:true,text:"ลบ.ม."}}}}});
+  // กราฟ 2: อัตราการใช้สารส้ม (กรัม/ลบ.ม.) = kg*1000/ลบ.ม.
+  var rate=A.months.map(function(m){var p=A.map[m].produced,a=A.map[m].alum;return p>0?Math.round(a*1000/p*10)/10:0;});
+  var avg=rate.filter(function(x){return x>0;});
+  avg=avg.length?avg.reduce(function(s,x){return s+x;},0)/avg.length:0;
+  if(chartAR)chartAR.destroy();
+  chartAR=new Chart(document.getElementById("chartAlumRate"),{type:"line",data:{labels:lab,datasets:[
+    {label:"สารส้มที่ใช้ (กรัม/ลบ.ม.)",data:rate,borderColor:"#7c3aed",backgroundColor:"rgba(124,58,237,.12)",fill:true,tension:.3},
+    {label:"ค่าเฉลี่ย "+fmt(avg)+" ก./ลบ.ม.",data:lab.map(function(){return Math.round(avg*10)/10;}),borderColor:"#94a3b8",borderDash:[6,4],pointRadius:0}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{title:{display:true,text:"กรัม/ลบ.ม."}}}}});
+  // กราฟ 3: บำบัดน้ำเสีย (ปูนขาว + น้ำตาล แท่งซ้อน)
+  if(chartWS)chartWS.destroy();
+  chartWS=new Chart(document.getElementById("chartWaste"),{type:"bar",data:{labels:lab,datasets:[
+    {label:"ปูนขาว Ca(OH)₂ (กก.)",data:A.months.map(function(m){return A.map[m].caoh;}),backgroundColor:"#0f766e"},
+    {label:"น้ำตาล (กก.)",data:A.months.map(function(m){return A.map[m].sugar;}),backgroundColor:"#db2777"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"กก."}}}}});
+  // records table
+  var wf=document.getElementById("wRecFilter");var filt=wf?wf.value:"";
+  var list=water.slice();if(filt)list=list.filter(function(r){return (r.date||"").slice(0,7)===filt;});
+  list.sort(function(a,b){return a.date<b.date?1:-1;});
+  var rh='<tr><th>วันที่</th><th>ผู้บันทึก</th><th>น้ำดิบ</th><th>มิเตอร์ก่อน</th><th>มิเตอร์หลัง</th><th>ผลิตน้ำ</th><th>เปิด</th><th>ปิด</th><th>สารส้ม</th><th>ปูนขาว</th><th>น้ำตาล</th><th>ชม.</th><th>หมายเหตุ</th><th></th></tr>';
+  var rb=list.map(function(r){
+    var bad=(+r.produced<0)||(+r.produced>3000);
+    return '<tr><td>'+r.date+'</td><td>'+(r.user||"-")+'</td><td>'+(r.raw3000!==""&&r.raw3000!=null?fmt(r.raw3000):"-")+'</td><td>'+(r.m_prev!==""&&r.m_prev!=null?fmt(r.m_prev):"-")+'</td><td>'+(r.m_curr!==""&&r.m_curr!=null?fmt(r.m_curr):"-")+'</td>'+
+    '<td'+(bad?' style="background:#fee2e2;color:#b91c1c;font-weight:700"':'')+'>'+fmt(r.produced||0)+'</td><td>'+(r.t_open||"-")+'</td><td>'+(r.t_close||"-")+'</td><td>'+fmt(r.alum||0)+'</td><td>'+fmt(r.caoh||0)+'</td><td>'+fmt(r.sugar||0)+'</td><td>'+(r.hours!==""&&r.hours!=null?fmt(r.hours):"-")+'</td><td style="text-align:left">'+(r.note||"")+'</td>'+
+    (window._isAdmin?'<td><span class="del" style="color:var(--brand)" onclick="wEdit(\''+r.id+'\')">แก้</span> · <span class="del" onclick="wDel(\''+r.id+'\')">ลบ</span></td>':'<td>-</td>')+'</tr>';}).join("")||'<tr><td colspan="14" class="empty">ยังไม่มีข้อมูล</td></tr>';
+  document.getElementById("wRec").innerHTML=rh+rb;
+}
+document.getElementById("btnWaterCsv").onclick=function(){
+  var cols=["date","user","raw3000","m_prev","m_curr","produced","t_open","t_close","alum","caoh","sugar","hours","note"];
+  var lines=[cols.join(",")];
+  water.slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(r){lines.push(cols.map(function(c){return (r[c]!==undefined&&r[c]!==null)?String(r[c]).replace(/,/g,";"):"";}).join(","));});
+  var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="water.csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
+};
+
+/* ============ ล้างข้อมูลซ้ำ (admin) ============ */
+async function cleanDuplicates(){
+  if(!window._isAdmin){toast("เฉพาะผู้ดูแลระบบ");return;}
+  // 1) น้ำประปา: วันที่ซ้ำ -> เก็บแถวล่าสุด 1 แถว
+  const seen={}, dupW=[], keepW=[];
+  water.slice().sort(function(a,b){return (a.date<b.date?-1:a.date>b.date?1:0);}).forEach(function(r){
+    if(seen[r.date]){dupW.push(r);}else{seen[r.date]=1;keepW.push(r);}
+  });
+  // 2) สารเคมีใน records ที่ซ้ำกับวันที่ในน้ำประปา (ข้อมูลชุดเก่าก่อนย้ายมาแท็บน้ำประปา)
+  const chemRows=records.filter(function(r){return r.date&&seen[r.date]&&((+r.alum||0)+(+r.caoh||0)+(+r.sugar||0))>0;});
+  // 3) น้ำมันเตา: id ซ้ำ / เดือน+รายการซ้ำ
+  const seenB={}, dupB=[], keepB=[];
+  boiler.forEach(function(r){const k=r.month+"|"+r.item+"|"+r.hours+"|"+r.liters;
+    if(seenB[k]){dupB.push(r);}else{seenB[k]=1;keepB.push(r);}});
+  if(!dupW.length&&!chemRows.length&&!dupB.length){toast("✅ ไม่พบข้อมูลซ้ำ");return;}
+  if(!confirm("พบข้อมูลซ้ำ:\n• น้ำประปา (วันที่ซ้ำ) "+dupW.length+" แถว\n• สารเคมีชุดเก่าใน 'รายการบันทึก' "+chemRows.length+" แถว\n• น้ำมันเตาซ้ำ "+dupB.length+" แถว\n\nล้างทิ้งเพื่อให้ยอดถูกต้อง?"))return;
+  const btn=document.getElementById("btnClean"); const old=btn.textContent; btn.disabled=true;
+  // ลบในเครื่อง
+  water=keepW; wsave();
+  boiler=keepB; bsave();
+  const delRec=[];
+  chemRows.forEach(function(r){
+    r.alum=0;r.caoh=0;r.sugar=0;
+    const other=(+r.solar_roof||0)+(+r.solar_farm||0)+(+r.use_office||0)+(+r.use_pump||0)+(+r.fuel||0)+(+r.lpg||0);
+    if(other===0)delRec.push(r.id);
+  });
+  records=records.filter(function(r){return delRec.indexOf(r.id)<0;});
+  save(); rerenderActive();
+  // ซิงค์ขึ้น Sheet
+  if(CLOUD()){
+    let d=0; const tot=dupW.length+dupB.length+chemRows.length;
+    try{
+      for(const r of dupW){await apiPost({sheet:"water",op:"delete",row:{id:r.id}});d++;btn.textContent="🧹 "+d+"/"+tot;}
+      for(const r of dupB){await apiPost({sheet:"boiler",op:"delete",row:{id:r.id}});d++;btn.textContent="🧹 "+d+"/"+tot;}
+      for(const id of delRec){await apiPost({sheet:"records",op:"delete",row:{id:id}});d++;btn.textContent="🧹 "+d+"/"+tot;}
+      for(const r of chemRows){if(delRec.indexOf(r.id)<0){await apiPost({sheet:"records",op:"upsert",row:r});d++;}}
+    }catch(e){}
+  }
+  btn.disabled=false; btn.textContent=old;
+  rerenderActive();
+  alert("ล้างข้อมูลซ้ำเรียบร้อย\n\nน้ำประปาเหลือ "+water.length+" แถว\nน้ำมันเตาเหลือ "+boiler.length+" แถว\nรายการบันทึกเหลือ "+records.length+" แถว\n\nตรวจยอดในหน้าสรุปผลได้เลย");
+}
+
+/* ============ A) ภาพรวมไฟฟ้าทั้งกอง (บิล PEA) ============ */
+let chartPEAobj;
+function renderPEA(){
+  const sel=document.getElementById("peaMonth");if(!sel)return;
+  const ms=report.map(r=>r.month).filter(Boolean).sort();
+  if(!sel.dataset.done){ms.slice().reverse().forEach(m=>{const o=document.createElement("option");o.value=m;o.textContent=thMonth(m);sel.appendChild(o);});sel.dataset.done="1";}
+  const m=sel.value||ms[ms.length-1];
+  const r=report.find(x=>x.month===m)||{};
+  const sum=(+r.rate_a||0)+(+r.rate_b||0)+(+r.rate_c||0);
+  const d=+r.days||(m?daysInMonth(m):30);
+  const baht=+r.g1_baht||0, kwhBill=+r.g1_kwh||0;
+  const perUnit=kwhBill>0?baht/kwhBill:0;
+  const pv=(+r.pv1||0)+(+r.pv2||0);
+  document.getElementById("peaKpis").innerHTML=
+    '<div class="kpi cyan"><div class="l">ใช้ไฟทั้งกอง</div><div class="v">'+fmt(sum)+'</div><div class="u">kWh</div></div>'+
+    '<div class="kpi"><div class="l">เฉลี่ยต่อวัน</div><div class="v">'+fmt(d>0?sum/d:0)+'</div><div class="u">kWh/วัน</div></div>'+
+    '<div class="kpi orange"><div class="l">ค่าไฟ (บิล)</div><div class="v">'+fmt(baht)+'</div><div class="u">บาท</div></div>'+
+    '<div class="kpi orange"><div class="l">ค่าไฟเฉลี่ย</div><div class="v">'+fmt(perUnit)+'</div><div class="u">บาท/หน่วย</div></div>'+
+    '<div class="kpi green"><div class="l">ผลิตไฟโซลาร์</div><div class="v">'+fmt(pv)+'</div><div class="u">kWh</div></div>';
+  if(chartPEAobj)chartPEAobj.destroy();
+  chartPEAobj=new Chart(document.getElementById("chartPEA"),{type:"bar",data:{labels:ms.map(thMonth),datasets:[
+    {label:"On Peak (RATE A)",data:ms.map(x=>{const q=report.find(y=>y.month===x)||{};return +q.rate_a||0;}),backgroundColor:"#dc2626"},
+    {label:"Off Peak (RATE B)",data:ms.map(x=>{const q=report.find(y=>y.month===x)||{};return +q.rate_b||0;}),backgroundColor:"#0891b2"},
+    {label:"Holiday (RATE C)",data:ms.map(x=>{const q=report.find(y=>y.month===x)||{};return +q.rate_c||0;}),backgroundColor:"#16a34a"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"kWh"}}}}});
+}
+
+/* ============ สรุปชั่วโมงเดินเครื่องกำเนิดไอน้ำ ============ */
+let chartMcObj;
+function renderMachine(){
+  var mode=document.getElementById("mcMode");if(!mode)return;
+  mode=mode.value;
+  var field=document.getElementById("mcVal").value;
+  var from=document.getElementById("mcFrom").value,to=document.getElementById("mcTo").value;
+  var ids=MACHINES.map(function(m){return m.id;});
+  var cell={},keys={};
+  machine.forEach(function(r){
+    var d=r.date||"";
+    if(from&&d&&d<from)return;
+    if(to&&d&&d>to)return;
+    var k=mode==="day"?d:(mode==="month"?(validYM(r.month||d)||""):(validYM(r.month||d)?String(fyStartOf(validYM(r.month||d))):""));
+    if(!k)return;keys[k]=1;
+    cell[r.machine+"|"+k]=(cell[r.machine+"|"+k]||0)+(+r[field]||0);
+  });
+  var ks=Object.keys(keys).sort();
+  var unit=field==="hours"?"ชม.":"ลิตร/กก.";
+  var grand=0;ks.forEach(function(k){ids.forEach(function(i){grand+=cell[i+"|"+k]||0;});});
+  // KPI: เครื่องที่เดินมากสุด
+  var byM={};ids.forEach(function(i){byM[i]=ks.reduce(function(s,k){return s+(cell[i+"|"+k]||0);},0);});
+  var top=ids.slice().sort(function(a,b){return byM[b]-byM[a];})[0];
+  document.getElementById("mcKpis").innerHTML=
+    '<div class="kpi orange"><div class="l">รวมทั้งหมด</div><div class="v">'+fmt(grand)+'</div><div class="u">'+unit+'</div></div>'+
+    '<div class="kpi"><div class="l">เครื่องที่ใช้งานมากสุด</div><div class="v" style="font-size:20px">'+(byM[top]>0?top:"—")+'</div><div class="u">'+(byM[top]>0?fmt(byM[top])+" "+unit:"ยังไม่มีข้อมูล")+'</div></div>'+
+    '<div class="kpi cyan"><div class="l">ช่วงเวลา</div><div class="v">'+ks.length+'</div><div class="u">'+(mode==="day"?"วัน":mode==="month"?"เดือน":"ปีงบ")+'</div></div>';
+  if(!ks.length){
+    document.getElementById("mcTable").innerHTML='<tr><td class="empty">ยังไม่มีข้อมูลเครื่องกำเนิดไอน้ำ (เริ่มบันทึกได้ที่ฟอร์มไอน้ำรายวัน)</td></tr>';
+    document.getElementById("mcTotal").innerHTML="";if(chartMcObj)chartMcObj.destroy();chartMcObj=null;return;
+  }
+  var head='<tr><th>'+(mode==="day"?"วันที่":mode==="month"?"เดือน":"ปีงบ")+'</th>'+ids.map(function(i){return '<th>'+i+'</th>';}).join("")+'<th>รวม</th></tr>';
+  var body=ks.map(function(k){
+    var s=0;var tds=ids.map(function(i){var v=cell[i+"|"+k]||0;s+=v;return '<td>'+(v?fmt(v):"–")+'</td>';}).join("");
+    return '<tr><td>'+bfLabel(k,mode)+'</td>'+tds+'<td><b>'+fmt(s)+'</b></td></tr>';
+  }).join("");
+  body+='<tr style="font-weight:800;background:#f1f5f9"><td>รวม</td>'+ids.map(function(i){return '<td>'+fmt(byM[i])+'</td>';}).join("")+'<td>'+fmt(grand)+'</td></tr>';
+  document.getElementById("mcTable").innerHTML=head+body;
+  var COLORS=["#ea580c","#dc2626","#b91c1c","#0891b2","#0f766e","#16a34a"];
+  if(chartMcObj)chartMcObj.destroy();
+  chartMcObj=new Chart(document.getElementById("chartMc"),{type:"bar",data:{labels:ks.map(function(k){return bfLabel(k,mode);}),
+    datasets:ids.map(function(i,x){return {label:i,data:ks.map(function(k){return cell[i+"|"+k]||0;}),backgroundColor:COLORS[x%COLORS.length]};})},
+    options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:unit}}}}});
+  // ชั่วโมงสะสมทั้งหมด (ไม่สนช่วงเวลา) เพื่อวางแผนซ่อม
+  var acc={},accF={};
+  machine.forEach(function(r){acc[r.machine]=(acc[r.machine]||0)+(+r.hours||0);accF[r.machine]=(accF[r.machine]||0)+(+r.fuel_qty||0);});
+  var h2='<tr><th>เครื่อง</th><th>แรงดัน</th><th>เชื้อเพลิง</th><th>ชั่วโมงสะสม</th><th>เชื้อเพลิงสะสม</th><th>หมายเหตุ</th></tr>';
+  h2+=MACHINES.map(function(m){
+    return '<tr><td style="text-align:left"><b>'+m.id+'</b></td>'+
+      '<td><span style="font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:20px;color:#fff;background:'+(m.press==="HP"?"#dc2626":"#0891b2")+'">'+m.press+'</span></td>'+
+      '<td>'+(m.fuel==="fuel"?"น้ำมันเตา":"LPG")+'</td>'+
+      '<td style="font-weight:700">'+fmt(acc[m.id]||0)+' ชม.</td>'+
+      '<td>'+fmt(accF[m.id]||0)+' '+m.unit+'</td>'+
+      '<td style="text-align:left;font-size:12.5px;color:var(--muted)">'+(m.press==="HP"?"จ่ายไอน้ำให้ "+HP_PLANT:"จ่ายไอน้ำโรงทั่วไป")+(m.id==="No.3"?" · ซ่อมปี ๗๐":"")+'</td></tr>';
+  }).join("");
+  document.getElementById("mcTotal").innerHTML=h2;
+}
+
+/* ============ ตารางสรุปน้ำมันเตาแบบยืดหยุ่น (วัน/เดือน/ปีงบ × โรงที่เลือก) ============ */
+let chartBfObj;
+const PLANTNAME={NC:"ไนโตรเซลลูโลส",NG:"ไนโตรกลีเซอรีน",P:"ดินส่งกระสุน",IMI:"ดินส่งกระสุน (ค.)",B:"ดินกระสุนเม็ดกลม",ACID:"กรด/อีเธอร์"};
+function bfInit(){
+  var box=document.getElementById("bfPlants");if(!box||box.dataset.done)return;
+  box.innerHTML=BITEMS.map(function(it){
+    return '<label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink);font-weight:600;cursor:pointer">'+
+      '<input type="checkbox" class="bfChk" value="'+it+'" checked onchange="renderBoilerFlex()" style="width:auto;margin:0"> '+it+' <span style="color:var(--muted);font-weight:400">('+(PLANTNAME[it]||"")+')</span></label>';
+  }).join("");
+  box.dataset.done="1";
+}
+function bfAll(v){document.querySelectorAll(".bfChk").forEach(function(c){c.checked=v;});renderBoilerFlex();}
+function bfSelected(){return [].slice.call(document.querySelectorAll(".bfChk:checked")).map(function(c){return c.value;});}
+// คีย์ช่วงเวลาของแต่ละแถวข้อมูล
+function bfKey(r,mode){
+  if(mode==="day")return r.date||"";                       // ต้องมีวันที่เท่านั้น
+  if(mode==="month")return validYM(r.month||r.date)||"";
+  var ym=validYM(r.month||r.date);return ym?String(fyStartOf(ym)):"";
+}
+function bfLabel(k,mode){
+  if(mode==="day"){var p=k.split("-");return +p[2]+" "+THMON[+p[1]-1]+String((+p[0]+543)%100);}
+  if(mode==="month")return thMonth(k);
+  return fyLabel(+k);
+}
+function renderBoilerFlex(){
+  bfInit();
+  var mode=document.getElementById("bfMode").value;
+  var field=document.getElementById("bfVal").value;
+  var from=document.getElementById("bfFrom").value, to=document.getElementById("bfTo").value;
+  var sel=bfSelected();
+  var cell={},keys={},noDate=0;
+  boiler.forEach(function(r){
+    if(sel.indexOf(r.item)<0)return;
+    var d=r.date||"";
+    if(mode==="day"&&!d){noDate++;return;}
+    // กรองช่วงวันที่ (ถ้ามีวันที่) หรือเทียบระดับเดือน
+    var cmp=d||((validYM(r.month)||"")+"-01");
+    if(from&&cmp&&cmp<from)return;
+    if(to&&cmp&&cmp>to)return;
+    var k=bfKey(r,mode);if(!k)return;
+    keys[k]=1;
+    cell[r.item+"|"+k]=(cell[r.item+"|"+k]||0)+(+r[field]||0);
+  });
+  var ks=Object.keys(keys).sort();
+  var unit=field==="liters"?"ลิตร":(field==="lpg"?"กก.":"ชม.");
+  // KPI
+  var grand=0;ks.forEach(function(k){sel.forEach(function(it){grand+=cell[it+"|"+k]||0;});});
+  document.getElementById("bfKpis").innerHTML=
+    '<div class="kpi orange"><div class="l">รวมทั้งหมด</div><div class="v">'+fmt(grand)+'</div><div class="u">'+unit+'</div></div>'+
+    '<div class="kpi"><div class="l">จำนวนช่วงเวลา</div><div class="v">'+ks.length+'</div><div class="u">'+(mode==="day"?"วัน":mode==="month"?"เดือน":"ปีงบ")+'</div></div>'+
+    '<div class="kpi cyan"><div class="l">โรงงานที่เลือก</div><div class="v">'+sel.length+'</div><div class="u">จาก '+BITEMS.length+' โรง</div></div>'+
+    (mode==="day"&&noDate?'<div class="kpi" style="border-left-color:#dc2626"><div class="l">รายการที่ไม่มีวันที่</div><div class="v">'+noDate+'</div><div class="u">ดูได้ในมุมมองเดือน</div></div>':"");
+  // ตาราง
+  if(!ks.length||!sel.length){
+    document.getElementById("bfTable").innerHTML='<tr><td class="empty">'+(!sel.length?"กรุณาเลือกโรงงานอย่างน้อย 1 โรง":(mode==="day"?"ไม่มีข้อมูลรายวันในช่วงที่เลือก (ข้อมูลเก่าบันทึกเป็นรายเดือน)":"ไม่มีข้อมูลในช่วงที่เลือก"))+'</td></tr>';
+    if(chartBfObj)chartBfObj.destroy();chartBfObj=null;return;
+  }
+  var head='<tr><th>'+(mode==="day"?"วันที่":mode==="month"?"เดือน":"ปีงบ")+'</th>'+sel.map(function(it){return '<th>'+it+'</th>';}).join("")+'<th>รวม</th></tr>';
+  var body=ks.map(function(k){
+    var s=0;var tds=sel.map(function(it){var v=cell[it+"|"+k]||0;s+=v;return '<td>'+(v?fmt(v):"–")+'</td>';}).join("");
+    return '<tr><td>'+bfLabel(k,mode)+'</td>'+tds+'<td><b>'+fmt(s)+'</b></td></tr>';
+  }).join("");
+  var colSum=sel.map(function(it){return ks.reduce(function(s,k){return s+(cell[it+"|"+k]||0);},0);});
+  body+='<tr style="font-weight:800;background:#f1f5f9"><td>รวม</td>'+colSum.map(function(v){return '<td>'+fmt(v)+'</td>';}).join("")+'<td>'+fmt(grand)+'</td></tr>';
+  document.getElementById("bfTable").innerHTML=head+body;
+  // กราฟแท่งซ้อน
+  var COLORS=["#0f766e","#ea580c","#0891b2","#7c3aed","#db2777","#16a34a"];
+  if(chartBfObj)chartBfObj.destroy();
+  chartBfObj=new Chart(document.getElementById("chartBf"),{type:"bar",data:{labels:ks.map(function(k){return bfLabel(k,mode);}),
+    datasets:sel.map(function(it,i){return {label:it,data:ks.map(function(k){return cell[it+"|"+k]||0;}),backgroundColor:COLORS[BITEMS.indexOf(it)%COLORS.length]};})},
+    options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:unit}}}}});
+}
+document.getElementById("btnBfCsv").onclick=function(){
+  var mode=document.getElementById("bfMode").value, field=document.getElementById("bfVal").value, sel=bfSelected();
+  var t=document.getElementById("bfTable"),lines=[];
+  [].slice.call(t.querySelectorAll("tr")).forEach(function(tr){
+    lines.push([].slice.call(tr.children).map(function(td){return String(td.textContent).replace(/,/g,"");}).join(","));
+  });
+  var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="boiler_"+mode+"_"+field+".csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
+};
+
+/* ============ สถานะการบันทึกของแต่ละหน่วย ============ */
+function parseStamp(s){
+  if(!s)return null;
+  var t=String(s).trim().replace("T"," ");
+  var m=t.match(/^(\d{4})-(\d{2})-(\d{2})[ ]?(\d{2})?:?(\d{2})?:?(\d{2})?/);
+  if(!m)return null;
+  return new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+}
+function daysAgo(d){if(!d)return null;return Math.floor((new Date()-d)/86400000);}
+function fmtStamp(d){
+  if(!d)return "—";
+  var p=n=>String(n).padStart(2,"0");
+  return THMON[d.getMonth()]+p(d.getDate())+" "+String((d.getFullYear()+543)%100)+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+// หน่วยงาน: ชีตที่รับผิดชอบ + ความถี่ (daily/monthly)
+const STUNITS=[
+  {name:"ส่วนผลิตน้ำประปา",   src:()=>water,     freq:"daily",   label:"น้ำประปา (รายวัน)"},
+  {name:"ส่วนผลิตไอน้ำ",      src:()=>boiler,    freq:"monthly", label:"น้ำมันเตา/LPG (รายเดือน)"},
+  {name:"ส่วนไฟฟ้า",          src:()=>elecmonth, freq:"monthly", label:"มิเตอร์ไฟฟ้า (รายเดือน)"},
+  {name:"ฝ่ายเลขาฯ",          src:()=>report,    freq:"monthly", label:"แบบฟอร์ม ปจด. (รายเดือน)"},
+  {name:"บันทึกรายวันอื่น ๆ", src:()=>records,   freq:"daily",   label:"records (รายวัน)"}
+];
+function lastUpdate(arr){
+  var best=null,who="";
+  (arr||[]).forEach(function(r){
+    var d=parseStamp(r.updated_at);
+    if(d&&(!best||d>best)){best=d;who=r.updated_by||r.user||"";}
+  });
+  return {at:best,by:who};
+}
+function statusOf(freq,d){
+  // รายวัน: 🟢 ≤1 วัน · 🟡 2-3 · 🔴 >3   |  รายเดือน: ดูว่าบันทึกเดือนที่แล้วหรือยัง
+  if(!d)return ["🔴","ยังไม่เคยบันทึก","#b91c1c"];
+  var n=daysAgo(d);
+  if(freq==="daily"){
+    if(n<=1)return ["🟢",n===0?"วันนี้":"เมื่อวาน","#16a34a"];
+    if(n<=3)return ["🟡",n+" วันที่แล้ว","#b45309"];
+    return ["🔴",n+" วันที่แล้ว","#b91c1c"];
+  }
+  var today=new Date(), dom=today.getDate();
+  if(n<=31)return ["🟢",n+" วันที่แล้ว","#16a34a"];
+  if(dom<=7)return ["🟡",n+" วันที่แล้ว","#b45309"];
+  if(dom<=15)return ["🟡",n+" วันที่แล้ว","#b45309"];
+  return ["🔴",n+" วันที่แล้ว","#b91c1c"];
+}
+function renderStatus(){
+  var rows=STUNITS.map(function(u){
+    var L=lastUpdate(u.src());
+    var S=statusOf(u.freq,L.at);
+    return {u:u,L:L,S:S};
+  });
+  var red=rows.filter(r=>r.S[0]==="🔴").length, yel=rows.filter(r=>r.S[0]==="🟡").length;
+  document.getElementById("stKpis").innerHTML=
+    '<div class="kpi green"><div class="l">หน่วยที่เป็นปัจจุบัน</div><div class="v">'+(rows.length-red-yel)+'</div><div class="u">จาก '+rows.length+' หน่วย</div></div>'+
+    '<div class="kpi orange"><div class="l">เริ่มล่าช้า</div><div class="v">'+yel+'</div><div class="u">หน่วย</div></div>'+
+    '<div class="kpi" style="border-left-color:#dc2626"><div class="l">ต้องติดตาม</div><div class="v">'+red+'</div><div class="u">หน่วย</div></div>';
+  var head='<tr><th>หน่วยงาน</th><th>ข้อมูลที่รับผิดชอบ</th><th>ผู้บันทึกล่าสุด</th><th>อัปเดตล่าสุด</th><th>ห่างมาแล้ว</th><th>สถานะ</th></tr>';
+  var body=rows.map(function(r){
+    return '<tr><td style="text-align:left"><b>'+r.u.name+'</b></td><td style="text-align:left">'+r.u.label+'</td>'+
+      '<td style="text-align:left">'+(r.L.by||"—")+'</td><td>'+fmtStamp(r.L.at)+'</td>'+
+      '<td style="color:'+r.S[2]+';font-weight:700">'+r.S[1]+'</td>'+
+      '<td style="font-size:18px">'+r.S[0]+'</td></tr>';
+  }).join("");
+  document.getElementById("stTable").innerHTML=head+body;
+  // ---- ความครบถ้วนของเดือน ----
+  var sel=document.getElementById("stMonth");
+  if(sel&&!sel.dataset.done){
+    BMONTHS.slice().reverse().forEach(function(m){var o=document.createElement("option");o.value=m;o.textContent=thMonth(m);sel.appendChild(o);});
+    var now=new Date(); sel.value=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+    sel.dataset.done="1";
+  }
+  var m=(sel&&sel.value)||BMONTHS[0];
+  var p=m.split("-"), y=+p[0], mo=+p[1];
+  var dim=new Date(y,mo,0).getDate();
+  var today=new Date();
+  var maxDay=(y===today.getFullYear()&&mo===today.getMonth()+1)?today.getDate():dim;
+  var have={}; water.forEach(function(r){if((r.date||"").slice(0,7)===m)have[+r.date.slice(8,10)]=1;});
+  var miss=[]; for(var d=1;d<=maxDay;d++){if(!have[d])miss.push(d);}
+  var h2='<tr><th>รายการ</th><th>ที่ควรมี</th><th>บันทึกแล้ว</th><th>ขาด</th><th>วันที่ยังไม่บันทึก</th></tr>';
+  h2+='<tr><td style="text-align:left">น้ำประปา (รายวัน)</td><td>'+maxDay+' วัน</td><td>'+(maxDay-miss.length)+'</td>'+
+      '<td style="color:'+(miss.length?"#b91c1c":"#16a34a")+';font-weight:700">'+miss.length+'</td>'+
+      '<td style="text-align:left">'+(miss.length?miss.join(", "):"— ครบทุกวัน —")+'</td></tr>';
+  var emN=elecmonth.filter(function(r){return r.month===m;}).length;
+  h2+='<tr><td style="text-align:left">มิเตอร์ไฟฟ้า (รายสถานี)</td><td>'+STATIONS.length+' สถานี</td><td>'+emN+'</td>'+
+      '<td style="color:'+(emN<STATIONS.length?"#b91c1c":"#16a34a")+';font-weight:700">'+Math.max(0,STATIONS.length-emN)+'</td>'+
+      '<td style="text-align:left">'+(emN>=STATIONS.length?"— ครบ —":STATIONS.filter(function(s){return !elecmonth.some(function(r){return r.month===m&&r.station===s;});}).join(", "))+'</td></tr>';
+  var boN=boiler.filter(function(r){return r.month===m;}).length;
+  h2+='<tr><td style="text-align:left">น้ำมันเตา (รายโรง)</td><td>ตามที่เดินเครื่อง</td><td>'+boN+'</td><td>—</td><td style="text-align:left">'+(boN?"บันทึกแล้ว "+boN+" รายการ":"ยังไม่มีข้อมูลเดือนนี้")+'</td></tr>';
+  var rpOK=report.some(function(r){return r.month===m&&((+r.rate_a||0)+(+r.rate_b||0)+(+r.rate_c||0))>0;});
+  h2+='<tr><td style="text-align:left">แบบฟอร์ม ปจด.</td><td>1 ชุด</td><td>'+(rpOK?1:0)+'</td>'+
+      '<td style="color:'+(rpOK?"#16a34a":"#b91c1c")+';font-weight:700">'+(rpOK?0:1)+'</td>'+
+      '<td style="text-align:left">'+(rpOK?"— ครบ —":"ยังไม่กรอกข้อมูล PEA")+'</td></tr>';
+  document.getElementById("stMissing").innerHTML=h2;
+  renderLoginLog();
+}
+function renderLoginLog(){
+  const card=document.getElementById("loginCard");if(!card)return;
+  // เห็นเฉพาะผู้บริหาร/หัวหน้า/แอดมิน
+  const r=currentUser?currentUser.role:"";
+  const can=["admin","viewer","head_elec","head_mech"].indexOf(r)>=0;
+  card.style.display=can?"":"none";
+  if(!can)return;
+  const list=loginlog.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,30);
+  let head='<tr><th>วันเวลาเข้าใช้งาน</th><th>ชื่อผู้ใช้</th><th>บทบาท</th><th>อุปกรณ์</th></tr>';
+  let body=list.map(x=>'<tr><td>'+(x.at||"-")+'</td><td style="text-align:left">'+(x.username||"-")+'</td><td>'+(x.role||"-")+'</td><td>'+(x.device||"-")+'</td></tr>').join("")
+    ||'<tr><td colspan="4" class="empty">ยังไม่มีประวัติ (จะเริ่มบันทึกตั้งแต่ใช้เวอร์ชันนี้)</td></tr>';
+  document.getElementById("loginTable").innerHTML=head+body;
+}
+
+/* ============ เปรียบเทียบปีงบประมาณ ============ */
+let chartFYobj;
+const FYMETRICS=[["elec_use","ใช้ไฟทั้งกอง (PEA)","kWh"],["elec_gen","ผลิตไฟโซลาร์","kWh"],
+  ["fuel","น้ำมันเตา","ลิตร"],["produced","ผลิตน้ำประปา","ลบ.ม."],["alum","สารส้ม","กก."],["baht","ค่าไฟฟ้า","บาท"]];
+function thMonthOnly(ym){return THMON[+ym.split("-")[1]-1];}
+function renderFYCompare(){
+  const selA=document.getElementById("fyA"),selB=document.getElementById("fyB"),selM=document.getElementById("fyMetric");
+  if(!selA)return;
+  const ys=availableFY().slice().sort((a,b)=>b-a);   // ปีล่าสุดก่อน
+  if(!selA.dataset.done){
+    ys.forEach(sy=>{[selA,selB].forEach(s=>{const o=document.createElement("option");o.value=sy;o.textContent=fyLabel(sy);s.appendChild(o);});});
+    FYMETRICS.filter(m=>inScope(m[0])).forEach(m=>{const o=document.createElement("option");o.value=m[0];o.textContent=m[1];selM.appendChild(o);});
+    selA.value=ys[0]; selB.value=(ys[1]!==undefined?ys[1]:ys[0]);
+    selA.dataset.done="1";
+  }
+  const A=+selA.value, B=+selB.value, key=selM.value||(FYMETRICS.filter(m=>inScope(m[0]))[0]||FYMETRICS[0])[0];
+  const meta=FYMETRICS.find(m=>m[0]===key)||FYMETRICS[0];
+  const mA=fyMonths(A), mB=fyMonths(B);
+  const vA=mA.map(m=>execData(m)[key]||0), vB=mB.map(m=>execData(m)[key]||0);
+  const labels=mA.map(thMonthOnly);
+  // YTD = รวมเฉพาะเดือนที่ปีหลักมีข้อมูล (เทียบยุติธรรม)
+  let ytdA=0,ytdB=0,n=0;
+  vA.forEach((v,i)=>{if(v>0){ytdA+=v;ytdB+=vB[i];n++;}});
+  const diff=ytdA-ytdB, pct=ytdB?diff/ytdB*100:0;
+  const cls=diff>0?"up":(diff<0?"down":"flat"), ar=diff>0?"▲":(diff<0?"▼":"—");
+  document.getElementById("fyKpis").innerHTML=
+    '<div class="exec-kpi"><div class="l">'+fyLabel(A)+' (สะสม '+n+' เดือน)</div><div class="v">'+fmt(ytdA)+'</div><div class="u">'+meta[2]+'</div></div>'+
+    '<div class="exec-kpi"><div class="l">'+fyLabel(B)+' (ช่วงเดียวกัน)</div><div class="v">'+fmt(ytdB)+'</div><div class="u">'+meta[2]+'</div></div>'+
+    '<div class="exec-kpi"><div class="l">ผลต่าง</div><div class="v">'+(diff>0?"+":"")+fmt(diff)+'</div><div class="u">'+meta[2]+'</div>'+
+    '<div class="chg '+cls+'">'+ar+' '+fmt(Math.abs(pct))+'%</div></div>';
+  if(chartFYobj)chartFYobj.destroy();
+  chartFYobj=new Chart(document.getElementById("chartFY"),{type:"line",data:{labels:labels,datasets:[
+    {label:fyLabel(A),data:vA.map(v=>v||null),borderColor:"#0f766e",backgroundColor:"rgba(15,118,110,.10)",fill:true,tension:.3,spanGaps:false},
+    {label:fyLabel(B),data:vB.map(v=>v||null),borderColor:"#94a3b8",borderDash:[6,4],tension:.3,spanGaps:false}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{title:{display:true,text:meta[2]}}}}});
+  // ตารางเทียบ
+  let head='<tr><th>เดือน</th><th>'+fyLabel(B)+'</th><th>'+fyLabel(A)+'</th><th>ผลต่าง</th><th>%</th></tr>';
+  let body=labels.map(function(L,i){
+    const a=vA[i],b=vB[i];
+    if(!a&&!b)return '<tr><td>'+L+'</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>';
+    const d=a-b,p=b?d/b*100:0;
+    const c=(!a||!b)?"":(d>0?'style="color:#dc2626;font-weight:700"':(d<0?'style="color:#16a34a;font-weight:700"':''));
+    return '<tr><td>'+L+'</td><td>'+(b?fmt(b):"–")+'</td><td>'+(a?fmt(a):"–")+'</td>'+
+      '<td '+c+'>'+((a&&b)?((d>0?"+":"")+fmt(d)):"–")+'</td><td '+c+'>'+((a&&b)?((d>0?"+":"")+fmt(p)+"%"):"–")+'</td></tr>';
+  }).join("");
+  body+='<tr style="font-weight:800;background:#f1f5f9"><td>รวมสะสม</td><td>'+fmt(ytdB)+'</td><td>'+fmt(ytdA)+'</td><td>'+(diff>0?"+":"")+fmt(diff)+'</td><td>'+(diff>0?"+":"")+fmt(pct)+'%</td></tr>';
+  document.getElementById("fyTable").innerHTML=head+body;
+}
+
+/* ============ ขอบเขตข้อมูลที่แต่ละหน่วยเห็นในหน้าภาพรวม ============ */
+const ROLESCOPE={
+  water:{keys:["produced","alum"],matrix:["alum","caoh","sugar"],charts:["chartExecWater"],unit:"ส่วนผลิตน้ำประปา"},
+  elec:{keys:["elec_use","elec_gen","baht","save"],matrix:["solar_roof","solar_farm","use_office","use_pump"],charts:["chartExecElec"],unit:"ส่วนไฟฟ้า"},
+  steam:{keys:["fuel"],matrix:["fuel","lpg"],charts:["chartExecFuel"],unit:"ส่วนผลิตไอน้ำ"}
+};
+function myScope(){return (currentUser&&ROLESCOPE[currentUser.role])||null;}
+function inScope(key){const s=myScope();return !s||s.keys.indexOf(key)>=0;}
+function scopedMatrix(){const s=myScope();return s?MATRIX.filter(c=>s.matrix.indexOf(c[0])>=0):MATRIX;}
+function applyScopeUI(){
+  const s=myScope();
+  ["chartExecElec","chartExecFuel","chartExecWater"].forEach(function(id){
+    const el=document.getElementById(id);if(!el)return;const card=el.closest(".card");if(!card)return;
+    card.style.display=(!s||s.charts.indexOf(id)>=0)?"":"none";
+  });
+  const note=document.getElementById("scopeNote");
+  if(note){if(s){note.style.display="";note.textContent="แสดงเฉพาะข้อมูลของ "+s.unit+" ตามสิทธิ์ของท่าน";}else note.style.display="none";}
+}
+
+/* ============ ภาพรวมผู้บริหาร ============ */
+let chartEx1,chartEx2,chartEx3;
+function execMonthsAvailable(){
+  const s={};
+  report.forEach(r=>{if(r.month)s[r.month]=1;});
+  boiler.forEach(r=>{if(r.month)s[r.month]=1;});
+  water.forEach(r=>{if(r.date)s[r.date.slice(0,7)]=1;});
+  records.forEach(r=>{if(r.date)s[r.date.slice(0,7)]=1;});
+  return Object.keys(s).sort();
+}
+function execData(m){
+  const {val}=matrixAgg();
+  const get=k=>{const c=MATRIX.find(x=>x[0]===k);return c?val(m,c):0;};
+  const w=water.filter(r=>(r.date||"").slice(0,7)===m);
+  return {
+    elec_use:get("use_office")+get("use_pump"),
+    elec_gen:get("solar_roof")+get("solar_farm"),
+    fuel:get("fuel"),
+    produced:w.reduce((s,r)=>s+(+r.produced||0),0),
+    alum:get("alum")+w.reduce((s,r)=>s+(+r.alum||0),0),
+    baht:(function(){const r=report.find(x=>x.month===m)||{};return (+r.g1_baht||0)+(+r.g2_baht||0);})(),
+    save:(function(){const r=report.find(x=>x.month===m)||{};return ((+r.pv1||0)+(+r.pv2||0))*4.5;})()
+  };
+}
+function prevMonth(m,mode){
+  const p=m.split("-");let y=+p[0],mo=+p[1];
+  if(mode==="year")y--;else{mo--;if(mo<1){mo=12;y--;}}
+  return y+"-"+String(mo).padStart(2,"0");
+}
+function chgHtml(now,before){
+  if(!before)return '<div class="chg flat">— ไม่มีข้อมูลเทียบ</div>';
+  const d=now-before, p=before?(d/before*100):0;
+  const cls=d>0?"up":(d<0?"down":"flat");
+  const ar=d>0?"▲":(d<0?"▼":"—");
+  return '<div class="chg '+cls+'">'+ar+' '+fmt(Math.abs(p))+'% ('+(d>0?"+":"")+fmt(d)+')</div>';
+}
+function renderExec(){
+  const months=execMonthsAvailable();
+  const sel=document.getElementById("ex_month");
+  if(sel&&!sel.dataset.done){months.slice().reverse().forEach(m=>{const o=document.createElement("option");o.value=m;o.textContent=thMonth(m);sel.appendChild(o);});sel.dataset.done="1";}
+  const fy=document.getElementById("exFY");
+  if(fy&&!fy.dataset.done){availableFY().forEach(sy=>{const o=document.createElement("option");o.value=sy;o.textContent=fyLabel(sy);fy.appendChild(o);});fy.dataset.done="1";}
+  // ค่าเริ่มต้น = เดือนล่าสุดที่มีข้อมูลรายงาน (ไม่ใช่เดือนล่าสุดที่ว่างเปล่า)
+  if(sel&&!sel.dataset.init){
+    const withData=months.filter(x=>report.some(r=>r.month===x&&((+r.rate_a||0)+(+r.rate_b||0)+(+r.rate_c||0))>0));
+    if(withData.length)sel.value=withData[withData.length-1];
+    sel.dataset.init="1";
+  }
+  const m=(sel&&sel.value)||months[months.length-1];
+  if(!m){document.getElementById("execKpis").innerHTML='<div class="empty">ยังไม่มีข้อมูล</div>';return;}
+  const mode=document.getElementById("ex_cmp").value;
+  const A=execData(m), B=execData(prevMonth(m,mode));
+  const card=(k,label,v,unit,b)=>inScope(k)?'<div class="exec-kpi"><div class="l">'+label+'</div><div class="v">'+fmt(v)+'</div><div class="u">'+unit+'</div>'+chgHtml(v,b)+'</div>':"";
+  document.getElementById("execKpis").innerHTML=
+    card("elec_use","ใช้ไฟฟ้ารวม",A.elec_use,"kWh",B.elec_use)+
+    card("elec_gen","ผลิตไฟ (โซลาร์)",A.elec_gen,"kWh",B.elec_gen)+
+    card("fuel","น้ำมันเตา",A.fuel,"ลิตร",B.fuel)+
+    card("produced","ผลิตน้ำประปา",A.produced,"ลบ.ม.",B.produced)+
+    card("alum","สารส้ม",A.alum,"กก.",B.alum)+
+    card("baht","ค่าไฟฟ้า (บิล)",A.baht,"บาท",B.baht)+
+    card("save","ผลประหยัดจากโซลาร์",A.save,"บาท",B.save);
+  applyScopeUI();
+  // กราฟแนวโน้ม
+  const lab=months.map(thMonth);
+  const D=months.map(execData);
+  if(chartEx1)chartEx1.destroy();
+  chartEx1=new Chart(document.getElementById("chartExecElec"),{data:{labels:lab,datasets:[
+    {type:"bar",label:"ใช้ไฟฟ้า (kWh)",data:D.map(x=>x.elec_use),backgroundColor:"#0891b2"},
+    {type:"bar",label:"ผลิตไฟโซลาร์ (kWh)",data:D.map(x=>x.elec_gen),backgroundColor:"#16a34a"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+  // แยกกราฟ: น้ำมันเตา และ ผลิตน้ำประปา เป็นคนละเรื่อง ไม่ควรอยู่ในกราฟเดียวกัน
+  if(chartEx2)chartEx2.destroy();
+  chartEx2=new Chart(document.getElementById("chartExecFuel"),{type:"bar",data:{labels:lab,datasets:[
+    {label:"น้ำมันเตา (ลิตร)",data:D.map(x=>x.fuel),backgroundColor:"#ea580c"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{title:{display:true,text:"ลิตร"}}}}});
+  if(chartEx3)chartEx3.destroy();
+  chartEx3=new Chart(document.getElementById("chartExecWater"),{type:"bar",data:{labels:lab,datasets:[
+    {label:"ผลิตน้ำประปา (ลบ.ม.)",data:D.map(x=>x.produced),backgroundColor:"#0891b2"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{title:{display:true,text:"ลบ.ม."}}}}});
+  renderFYCompare();
+  // ตารางไวท์บอร์ด
+  const sy=+(fy&&fy.value)||availableFY()[0];
+  const mons=fyMonths(sy); const {val}=matrixAgg(); const dash=v=>v===0?"–":fmt(v);
+  const MX=scopedMatrix();
+  let head="<tr><th>เดือน</th>"+MX.map(c=>'<th>'+c[1]+'<br>('+c[2]+')</th>').join("")+"</tr>";
+  let body=mons.map(mm=>"<tr><td>"+thMonth(mm)+"</td>"+MX.map(c=>"<td>"+dash(val(mm,c))+"</td>").join("")+"</tr>").join("");
+  body+="<tr><td><b>รวม</b></td>"+MX.map(c=>"<td><b>"+fmt(mons.reduce((s,mm)=>s+val(mm,c),0))+"</b></td>").join("")+"</tr>";
+  document.getElementById("exMatrix").innerHTML=head+body;
+}
+
+/* ===== Sync bar wiring ===== */
+document.getElementById("apiUrlInput").value=apiUrl;
+function updateSyncStatus(){const el=document.getElementById("syncStatus");
+  if(CLOUD()){el.textContent="● เชื่อม Google Sheet แล้ว";el.style.color="#16a34a";}
+  else{el.textContent="● โหมดออฟไลน์ (เก็บในเครื่อง)";el.style.color="#64748b";}}
+updateSyncStatus();
+document.getElementById("btnConnect").onclick=()=>{
+  apiUrl=document.getElementById("apiUrlInput").value.trim();
+  localStorage.setItem(CFGKEY,apiUrl);updateSyncStatus();
+  toast(CLOUD()?"บันทึกลิงก์แล้ว":"ล้างลิงก์ กลับสู่โหมดออฟไลน์");
+};
+document.getElementById("btnUpload").onclick=async()=>{
+  if(!CLOUD()){toast("ใส่ลิงก์แล้วกดเชื่อมต่อก่อน");return;}
+  const sets=[["records",records],["boiler",boiler],["elecmonth",elecmonth],["report",report],["water",water],["machine",machine]];
+  const total=sets.reduce((s,x)=>s+x[1].length,0);
+  let done=0, fail=0, firstErr="";
+  const btn=document.getElementById("btnUpload"); const old=btn.textContent; btn.disabled=true;
+  for(const [name,arr] of sets){
+    for(const r of arr){
+      try{
+        const res=await apiPost({sheet:name,op:"upsert",row:r});
+        if(res&&res.ok===false){fail++;if(!firstErr)firstErr=name+": "+(res.error||"ไม่ทราบสาเหตุ");}
+      }catch(e){fail++;if(!firstErr)firstErr=name+": "+e.message;}
+      done++;
+      btn.textContent="⬆ "+done+"/"+total;
+      if(done%10===0)toast("กำลังอัปโหลด "+done+"/"+total+" ("+name+")");
+    }
+  }
+  try{await apiPost({sheet:"config",op:"stock",row:bstock});}catch(e){}
+  btn.disabled=false; btn.textContent=old;
+  if(fail===0)toast("✅ อัปโหลดครบ "+total+" แถวแล้ว");
+  else{toast("⚠ อัปโหลด "+(total-fail)+"/"+total+" · ผิดพลาด "+fail+" แถว");alert("อัปโหลดไม่ครบ\nสำเร็จ "+(total-fail)+" / "+total+" แถว\nผิดพลาด "+fail+" แถว\n\nข้อความผิดพลาดแรก:\n"+firstErr);}
+};
+document.getElementById("btnPull").onclick=async()=>{
+  if(!CLOUD()){toast("ใส่ลิงก์แล้วกดเชื่อมต่อก่อน");return;}
+  toast("กำลังดึงข้อมูล...");
+  const ok=await refreshFromCloud(true);
+  toast(ok?"ดึงข้อมูลจาก Sheet แล้ว":"เชื่อมต่อไม่สำเร็จ ตรวจลิงก์");
+};
+// เปิดแอปแล้วดึงข้อมูลล่าสุดอัตโนมัติ (เฉพาะเมื่อเชื่อมและ Sheet มีข้อมูล)
+if(CLOUD()){refreshFromCloud(false);}
+
+// นำเข้าไฟล์ CSV — รองรับ 2 แบบ:
+//  1) records: หัวคอลัมน์ date, user, และฟิลด์ เช่น alum, caoh, sugar, fuel, lpg, solar_roof ...
+//  2) น้ำมันเตารายเดือน (boiler): หัวคอลัมน์ month, item, hours, liters (แทนที่เดือนที่ซ้ำกัน กันยอดเบิ้ล)
+document.getElementById("csvFile").onchange=async(ev)=>{
+  const file=ev.target.files[0];if(!file)return;
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){toast("ไฟล์ว่างหรือไม่มีข้อมูล");ev.target.value="";return;}
+  const header=lines[0].split(",").map(s=>s.trim().toLowerCase());
+
+  if(header.includes("date") && (header.includes("m_prev")||header.includes("raw3000")||header.includes("produced"))){
+    // ---- น้ำประปา (water) ----
+    var wnew=[];
+    for(let i=1;i<lines.length;i++){
+      const cells=lines[i].split(",");
+      const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
+      if(!o.date)continue;
+      var mp=o.m_prev!==undefined&&o.m_prev!==""?parseFloat(o.m_prev):"", mc=o.m_curr!==undefined&&o.m_curr!==""?parseFloat(o.m_curr):"";
+      var prod=(o.produced!==undefined&&o.produced!=="")?parseFloat(o.produced):((mp!==""&&mc!=="")?Math.round((mc-mp)*1000)/1000:0);
+      wnew.push({id:uid(),date:o.date,user:o.user||"นำเข้า",raw3000:o.raw3000!==""&&o.raw3000!==undefined?(parseFloat(o.raw3000)||0):"",m_prev:isNaN(mp)?"":mp,m_curr:isNaN(mc)?"":mc,produced:isNaN(prod)?0:prod,t_open:o.t_open||"",t_close:o.t_close||"",alum:parseFloat(o.alum)||0,caoh:parseFloat(o.caoh)||0,sugar:parseFloat(o.sugar)||0,hours:o.hours!==""&&o.hours!==undefined?(parseFloat(o.hours)||0):"",note:o.note||""});
+    }
+    // กันซ้ำ: ถ้ามีวันเดียวกันอยู่แล้ว ให้แทนที่ (ลบของเดิมออกก่อน)
+    const wdates={};wnew.forEach(r=>wdates[r.date]=1);
+    const wdel=water.filter(r=>wdates[r.date]);
+    water=water.filter(r=>!wdates[r.date]);
+    wnew.forEach(r=>water.push(r));wsave();rerenderActive();
+    toast("นำเข้าน้ำประปา "+wnew.length+" แถว"+(wdel.length?" (แทนที่ของเดิม "+wdel.length+" แถว)":"")+(CLOUD()?" กำลังซิงค์...":""));
+    if(CLOUD()){try{
+      const lb=document.querySelector('label[for],label.btn'); let done=0;
+      for(const r of wdel) await apiPost({sheet:"water",op:"delete",row:{id:r.id}});
+      for(const r of wnew){await apiPost({sheet:"water",op:"upsert",row:r});done++;
+        if(done%10===0)toast("กำลังซิงค์น้ำประปา "+done+"/"+wnew.length);}
+      toast("✅ นำเข้าน้ำประปา+ซิงค์ "+wnew.length+" แถวแล้ว");
+    }catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    ev.target.value="";return;
+  }
+
+  if(header.includes("month") && (header.includes("rate_a")||header.includes("c_repair")||header.includes("g1_kwh")||header.includes("pv1"))){
+    // ---- ข้อมูลรายงานรายเดือน (report) ----
+    var rrows=[];
+    for(let i=1;i<lines.length;i++){
+      const cells=lines[i].split(",");
+      const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
+      if(!o.month)continue;
+      var rec={id:o.month,month:o.month};
+      RPFIELDS.forEach(function(f){if(o[f]!==undefined&&o[f]!==""){rec[f]=(RPTEXT.indexOf(f)>=0)?o[f]:(parseFloat(o[f])||0);}});
+      rrows.push(rec);
+    }
+    var rKeys={};rrows.forEach(r=>rKeys[r.month]=1);
+    report=report.filter(r=>!rKeys[r.month]);   // แทนที่เดือนเดิม
+    rrows.forEach(r=>report.push(r));
+    rpsave();rerenderActive();
+    toast("นำเข้าข้อมูลรายงาน "+rrows.length+" เดือน"+(CLOUD()?" กำลังซิงค์...":""));
+    if(CLOUD()){try{let dn=0;for(const r of rrows){await apiPost({sheet:"report",op:"upsert",row:r});dn++;if(dn%5===0)toast("กำลังซิงค์รายงาน "+dn+"/"+rrows.length);}toast("✅ นำเข้ารายงาน+ซิงค์ "+rrows.length+" เดือนแล้ว");}catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    ev.target.value="";return;
+  }
+
+  if(header.includes("station") && header.includes("month")){
+    // ---- ไฟฟ้ารายเดือน (elecmonth) ----
+    var erows=[];
+    for(let i=1;i<lines.length;i++){
+      const cells=lines[i].split(",");
+      const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
+      if(!o.month||!o.station)continue;
+      var prev=o.prev===""?"":parseFloat(o.prev), curr=o.curr===""?"":parseFloat(o.curr);
+      var usage=o.usage!==undefined&&o.usage!==""?parseFloat(o.usage):((curr!==""&&prev!=="")?Math.round((curr-prev)*1000)/1000:0);
+      erows.push({id:"em_"+o.month+"_"+o.station,month:o.month,station:o.station,prev:isNaN(prev)?"":prev,curr:isNaN(curr)?"":curr,usage:isNaN(usage)?0:usage,note:o.note||""});
+    }
+    var emKeys={};erows.forEach(r=>emKeys[r.month+"|"+r.station]=1);
+    elecmonth=elecmonth.filter(r=>!emKeys[r.month+"|"+r.station]);   // แทนที่ของเดิม (กันซ้ำ)
+    erows.forEach(r=>elecmonth.push(r));
+    emsave();rerenderActive();
+    toast("นำเข้าไฟฟ้ารายเดือน "+erows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
+    if(CLOUD()){try{let dn=0;for(const r of erows){await apiPost({sheet:"elecmonth",op:"upsert",row:r});dn++;if(dn%10===0)toast("กำลังซิงค์ไฟฟ้า "+dn+"/"+erows.length);}toast("✅ นำเข้าไฟฟ้า+ซิงค์ "+erows.length+" แถวแล้ว");}catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    ev.target.value="";return;
+  }
+
+  if(header.includes("item") && header.includes("month")){
+    // ---- น้ำมันเตา (boiler) ----
+    const rows=[];
+    for(let i=1;i<lines.length;i++){
+      const cells=lines[i].split(",");
+      const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
+      if(!o.month||!o.item)continue;
+      rows.push({id:uid(),month:o.month,item:o.item.toUpperCase(),hours:parseFloat(o.hours)||0,liters:parseFloat(o.liters)||0});
+    }
+    const months={};rows.forEach(r=>months[r.month]=1);
+    const del=boiler.filter(r=>months[r.month]);      // ของเดิมในเดือนที่นำเข้า -> ลบทิ้ง
+    boiler=boiler.filter(r=>!months[r.month]);
+    rows.forEach(r=>boiler.push(r));
+    bsave();rerenderActive();
+    toast("นำเข้าน้ำมันเตา "+rows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
+    if(CLOUD()){try{
+      for(const r of del) await apiPost({sheet:"boiler",op:"delete",row:{id:r.id}});
+      for(const r of rows) await apiPost({sheet:"boiler",op:"upsert",row:r});
+      toast("นำเข้าน้ำมันเตา+ซิงค์ "+rows.length+" แถวแล้ว");
+    }catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    ev.target.value="";return;
+  }
+
+  // ---- records ----
+  const news=[];
+  for(let i=1;i<lines.length;i++){
+    const cells=lines[i].split(",");
+    const o={};header.forEach((h,j)=>o[h]=(cells[j]||"").trim());
+    if(!o.date)continue;
+    const rec=Object.assign({id:uid(),date:o.date,user:o.user||"นำเข้า"},blankRec());
+    ALLFIELDS.forEach(k=>{if(o[k]!==undefined&&o[k]!=="")rec[k]=parseFloat(o[k])||0;});
+    records.push(rec);news.push(rec);
+  }
+  save();rerenderActive();
+  toast("นำเข้า "+news.length+" รายการ"+(CLOUD()?" กำลังซิงค์...":""));
+  if(CLOUD()){try{for(const r of news)await apiPost({sheet:"records",op:"upsert",row:r});toast("นำเข้า+ซิงค์ "+news.length+" รายการแล้ว");}catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+  ev.target.value="";
+};
+
+// ===== เฟส 3: ล็อกอิน + สิทธิ์ตามบทบาท (UI-level) =====
+const SESSKEY="agri_session";
+const ROLES={
+  admin:{tabs:["elecmon","water","boiler","report","records","exec","status","summary"],boxes:["elec","water","steam"],admin:true,mode:"entry"},
+  elec:{tabs:["elecmon","exec","summary","report"],boxes:["elec"],mode:"entry"},
+  water:{tabs:["water","exec","summary"],boxes:["water"],mode:"entry"},
+  steam:{tabs:["boiler","exec","summary"],boxes:["steam"],mode:"entry"},
+  // ผู้บริหาร/ผู้ดูอย่างเดียว: เข้าโหมดรายงานทันที ไม่เห็นปุ่มบันทึก
+  viewer:{tabs:["exec","status","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true},
+  // หัวหน้าแผนกไฟฟ้า — ดูอย่างเดียว เปิดมาเจอหน้าไฟฟ้าก่อน
+  // หัวหน้าแผนกไฟฟ้า — ดูอย่างเดียว เปิดมาเจอหน้าไฟฟ้าก่อน (ดูข้อมูลน้ำมันเตาได้ด้วย)
+  head_elec:{tabs:["exec","status","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true,first:"elecmon",title:"หัวหน้าแผนกไฟฟ้า"},
+  // หัวหน้าแผนกเครื่องกล — ดูอย่างเดียว เปิดมาเจอหน้าไอน้ำ–เชื้อเพลิงก่อน
+  head_mech:{tabs:["exec","status","elecmon","water","boiler","summary","report"],boxes:[],mode:"view",viewOnly:true,first:"boiler",title:"หัวหน้าแผนกเครื่องกล"}
+};
+let currentUser=null;
+window._users=window._users||[];
+window._isAdmin=false;
+function checkLogin(u,p){
+  const users=window._users||[];
+  const f=users.find(x=>x.username===u&&String(x.pin)===String(p));
+  if(f)return f.role;
+  if(users.length===0 && u==="admin" && p==="1234")return "admin";
+  return null;
+}
+async function doLogin(){
+  const u=document.getElementById("loginUser").value.trim();
+  const p=document.getElementById("loginPin").value.trim();
+  if(CLOUD() && (!window._users||!window._users.length)){try{const d=await apiGet();if(d&&d.ok&&d.users)window._users=d.users;}catch(e){}}
+  const role=checkLogin(u,p);
+  if(!role){document.getElementById("loginErr").textContent="ชื่อผู้ใช้หรือ PIN ไม่ถูกต้อง";return;}
+  currentUser={username:u,role:role,pin:p};
+  localStorage.setItem(SESSKEY,JSON.stringify(currentUser));
+  applyPermissions(role);
+  document.getElementById("loginOverlay").style.display="none";
+  pingCloud();
+  pushLogin();
+}
+function doLogout(){localStorage.removeItem(SESSKEY);location.reload();}
+function applyPermissions(role){
+  const r=ROLES[role]||ROLES.viewer;
+  window._isAdmin=!!r.admin;
+  window._roleTabs=r.tabs;
+  window._roleFirst=r.first||null;
+  document.querySelectorAll(".unitbox").forEach(box=>{
+    const tag=box.querySelector(".unittag");let unit=null;
+    if(tag)tag.classList.forEach(c=>{if(c.indexOf("u-")===0)unit=c.slice(2);});
+    box.style.display=(unit&&r.boxes.indexOf(unit)>=0)?"":"none";
+  });
+  ["btnUpload","btnWipe","btnClean"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=r.admin?"":"none";});
+  const imp=document.getElementById("csvFile");if(imp&&imp.parentElement)imp.parentElement.style.display=r.admin?"":"none";
+  const lo=document.getElementById("btnLogout");if(lo)lo.style.display="";
+  const who=document.getElementById("whoami");
+  if(who)who.textContent=currentUser?("👤 "+currentUser.username+" ("+(r.title||role)+(r.viewOnly?" · ดูอย่างเดียว":"")+")"):"";
+  // ผู้ดูอย่างเดียว: ซ่อนปุ่มสลับโหมด "บันทึกข้อมูล"
+  const eb=document.querySelector('.modebtn[data-mode="entry"]');
+  if(eb)eb.style.display=r.viewOnly?"none":"";
+  setMode(r.mode||"entry");
+}
+(function(){
+  try{const s=JSON.parse(localStorage.getItem(SESSKEY)||"null");
+    if(s&&s.role){currentUser=s;applyPermissions(s.role);document.getElementById("loginOverlay").style.display="none";}
+  }catch(e){}
+  const pin=document.getElementById("loginPin");if(pin)pin.addEventListener("keydown",function(e){if(e.key==="Enter")doLogin();});
+})();
+</script>
 </body>
 </html>
