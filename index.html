@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-18c (น้ำมันเตารายวัน + นำเข้าเครื่องกำเนิดไอน้ำ)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19a (ซิงค์ทนหลุด + ส่งซ้ำอัตโนมัติ)</b></p>
 </header>
 
 <div class="wrap">
@@ -706,6 +706,51 @@ function warnCloud(res,what){
   const box=document.getElementById("cloudWarn");if(box)box.style.display="none";
   return true;
 }
+/* ---- ซิงค์ทีละชุดแบบทนหลุด: ลองซ้ำอัตโนมัติ + รายงานจำนวนที่สำเร็จจริง ----
+   ปัญหาเดิม: ลูปยิงทีละแถว ถ้าหลุดกลางทางจะเงียบ ทำให้ชีตได้ไม่ครบโดยไม่รู้ตัว */
+let PENDING=null;                       // งานที่ยังซิงค์ไม่ครบ (ไว้ให้กดลองใหม่)
+async function syncRows(sheet,rows,label,dels){
+  if(!CLOUD())return {ok:0,fail:0};
+  dels=dels||[];
+  const btn=document.getElementById("btnUpload");
+  let done=0,failed=[];
+  for(const r of dels){try{await apiPost({sheet:sheet,op:"delete",row:{id:r.id}});}catch(e){}}
+  for(let round=0;round<3;round++){
+    const todo=round===0?rows:failed;
+    if(!todo.length)break;
+    failed=[];
+    for(const r of todo){
+      let res=null;
+      try{res=await apiPost({sheet:sheet,op:"upsert",row:r});}catch(e){res={ok:false,error:e.message};}
+      if(res&&res.ok===false)failed.push(r);else done++;
+      if(btn)btn.textContent="⬆ "+done+"/"+rows.length;
+      if(done%20===0)toast("กำลังซิงค์"+label+" "+done+"/"+rows.length);
+    }
+    if(!failed.length)break;
+    toast("มี "+failed.length+" แถวยังไม่เข้า กำลังลองใหม่รอบที่ "+(round+2)+"...");
+    await new Promise(s=>setTimeout(s,1500));
+  }
+  if(btn)btn.textContent="⬆ อัปโหลดขึ้น Sheet";
+  const box=document.getElementById("cloudWarn");
+  if(failed.length){
+    PENDING={sheet:sheet,rows:failed,label:label};
+    if(box){box.style.display="";box.innerHTML=
+      "⚠ <b>ซิงค์ขึ้นฐานข้อมูลกลางไม่ครบ</b> — "+label+" เข้าแล้ว "+done+" จาก "+rows.length+" แถว (ขาด "+failed.length+" แถว)<br>"+
+      "ข้อมูลครบอยู่ในเครื่องนี้แล้ว แต่ยังไม่ขึ้นชีต <b>อย่าเพิ่งปิดหน้าจอ</b><br>"+
+      '<button class="btn btn-sm" style="margin-top:8px" onclick="retryPending()">🔄 ส่งส่วนที่ขาดอีกครั้ง</button>';}
+    toast("⚠ ซิงค์ไม่ครบ ขาด "+failed.length+" แถว — กดปุ่มส่งซ้ำด้านบน");
+  }else{
+    PENDING=null;
+    if(box)box.style.display="none";
+    toast("✅ "+label+" เข้าฐานข้อมูลกลางครบ "+done+"/"+rows.length+" แถวแล้ว");
+  }
+  return {ok:done,fail:failed.length};
+}
+async function retryPending(){
+  if(!PENDING){toast("ไม่มีรายการค้าง");return;}
+  const p=PENDING;toast("กำลังส่งส่วนที่ขาด "+p.rows.length+" แถว...");
+  await syncRows(p.sheet,p.rows,p.label);
+}
 function pushRow(sheet,row){if(CLOUD())apiPost({sheet:sheet,op:"upsert",row:row}).then(r=>warnCloud(r,sheet)).catch(()=>{});}
 function pushDel(sheet,id){if(CLOUD())apiPost({sheet:sheet,op:"delete",row:{id:id}}).then(r=>warnCloud(r,sheet)).catch(()=>{});}
 // ตรวจสิทธิ์ตอนล็อกอิน — รู้ทันทีถ้าแอปเป็นเวอร์ชันเก่าหรือ PIN ไม่ตรง
@@ -732,15 +777,26 @@ async function refreshFromCloud(force){
     if(d&&d.ok){
       if(d.users)window._users=d.users;
       // force = กด "ดึงจาก Sheet" เอง → ทับทั้งหมด · auto = ถ้า Sheet ว่างในชุดไหน เก็บของในเครื่องไว้ (กันข้อมูลหายเมื่อ backend ยังไม่มีชีตนั้น)
-      const pick=(cloud,local)=> force ? (cloud||[]) : ((cloud&&cloud.length)?cloud:local);
+      // auto: ถ้าบนชีตมีน้อยกว่าในเครื่อง = ชีตยังรับไม่ครบ ห้ามทับ (กันข้อมูลหายแบบเงียบ ๆ)
+      let short=[];
+      const pick=(cloud,local,name)=>{
+        if(force)return cloud||[];
+        if(!cloud||!cloud.length)return local;
+        if(local&&cloud.length<local.length){short.push(name+" (ชีต "+cloud.length+" · เครื่องนี้ "+local.length+")");return local;}
+        return cloud;
+      };
       const has=(d.records&&d.records.length)||(d.boiler&&d.boiler.length)||(d.elecmonth&&d.elecmonth.length)||(d.report&&d.report.length)||(d.water&&d.water.length);
       if(has||force){
-        records=pick(d.records,records);boiler=pick(d.boiler,boiler);
-        elecmonth=pick(d.elecmonth,elecmonth);report=pick(d.report,report);water=pick(d.water,water);
+        records=pick(d.records,records,"บันทึกรายวัน");boiler=pick(d.boiler,boiler,"น้ำมันเตารายโรง");
+        elecmonth=pick(d.elecmonth,elecmonth,"มิเตอร์ไฟฟ้า");report=pick(d.report,report,"แบบฟอร์ม ปจด");water=pick(d.water,water,"น้ำประปา");
         if(d.stock)bstock=d.stock;
         if(d.loginlog)loginlog=d.loginlog;
         if(d.delreq)delreq=d.delreq;
-        machine=pick(d.machine,machine);
+        machine=pick(d.machine,machine,"เครื่องกำเนิดไอน้ำ");
+        const wb=document.getElementById("cloudWarn");
+        if(short.length&&wb){wb.style.display="";wb.innerHTML=
+          "⚠ <b>ข้อมูลบนชีตยังไม่ครบ</b> — "+short.join(" · ")+"<br>"+
+          "ระบบเก็บข้อมูลในเครื่องนี้ไว้ให้แล้ว (ไม่ทับด้วยของที่ขาด) กรุณากด <b>⬆ อัปโหลดขึ้น Sheet</b> เพื่อส่งส่วนที่ขาดขึ้นไป";}
         save();bsave();stsave();emsave();rpsave();wsave();lgsave();mcsave();drsave();updateDrBadge();rerenderActive();
       }
       return true;
@@ -2455,23 +2511,30 @@ document.getElementById("btnUpload").onclick=async()=>{
   if(!CLOUD()){toast("ใส่ลิงก์แล้วกดเชื่อมต่อก่อน");return;}
   const sets=[["records",records],["boiler",boiler],["elecmonth",elecmonth],["report",report],["water",water],["machine",machine]];
   const total=sets.reduce((s,x)=>s+x[1].length,0);
-  let done=0, fail=0, firstErr="";
+  let done=0, firstErr="", todo=[];
+  sets.forEach(([name,arr])=>arr.forEach(r=>todo.push([name,r])));
   const btn=document.getElementById("btnUpload"); const old=btn.textContent; btn.disabled=true;
-  for(const [name,arr] of sets){
-    for(const r of arr){
+  // ลองซ้ำได้ 3 รอบ กันเน็ตสะดุดแล้วข้อมูลขึ้นไม่ครบโดยไม่รู้ตัว
+  for(let round=0;round<3&&todo.length;round++){
+    const retry=[];
+    for(const [name,r] of todo){
+      let bad=false;
       try{
         const res=await apiPost({sheet:name,op:"upsert",row:r});
-        if(res&&res.ok===false){fail++;if(!firstErr)firstErr=name+": "+(res.error||"ไม่ทราบสาเหตุ");}
-      }catch(e){fail++;if(!firstErr)firstErr=name+": "+e.message;}
-      done++;
+        if(res&&res.ok===false){bad=true;if(!firstErr)firstErr=name+": "+(res.error||"ไม่ทราบสาเหตุ");}
+      }catch(e){bad=true;if(!firstErr)firstErr=name+": "+e.message;}
+      if(bad)retry.push([name,r]);else done++;
       btn.textContent="⬆ "+done+"/"+total;
       if(done%10===0)toast("กำลังอัปโหลด "+done+"/"+total+" ("+name+")");
     }
+    todo=retry;
+    if(todo.length){toast("มี "+todo.length+" แถวยังไม่เข้า ลองใหม่รอบที่ "+(round+2)+"...");await new Promise(s=>setTimeout(s,1500));}
   }
+  const fail=todo.length;
   try{await apiPost({sheet:"config",op:"stock",row:bstock});}catch(e){}
   btn.disabled=false; btn.textContent=old;
   if(fail===0)toast("✅ อัปโหลดครบ "+total+" แถวแล้ว");
-  else{toast("⚠ อัปโหลด "+(total-fail)+"/"+total+" · ผิดพลาด "+fail+" แถว");alert("อัปโหลดไม่ครบ\nสำเร็จ "+(total-fail)+" / "+total+" แถว\nผิดพลาด "+fail+" แถว\n\nข้อความผิดพลาดแรก:\n"+firstErr);}
+  else{toast("⚠ อัปโหลด "+done+"/"+total+" · ยังขาด "+fail+" แถว");alert("อัปโหลดไม่ครบ (ลองซ้ำ 3 รอบแล้ว)\nสำเร็จ "+done+" / "+total+" แถว\nยังขาด "+fail+" แถว\n\nข้อความผิดพลาดแรก:\n"+firstErr+"\n\nข้อมูลยังอยู่ครบในเครื่องนี้ กด ⬆ อีกครั้งได้");}
 };
 document.getElementById("btnPull").onclick=async()=>{
   if(!CLOUD()){toast("ใส่ลิงก์แล้วกดเชื่อมต่อก่อน");return;}
@@ -2509,13 +2572,7 @@ document.getElementById("csvFile").onchange=async(ev)=>{
     water=water.filter(r=>!wdates[r.date]);
     wnew.forEach(r=>water.push(r));wsave();rerenderActive();
     toast("นำเข้าน้ำประปา "+wnew.length+" แถว"+(wdel.length?" (แทนที่ของเดิม "+wdel.length+" แถว)":"")+(CLOUD()?" กำลังซิงค์...":""));
-    if(CLOUD()){try{
-      const lb=document.querySelector('label[for],label.btn'); let done=0;
-      for(const r of wdel) await apiPost({sheet:"water",op:"delete",row:{id:r.id}});
-      for(const r of wnew){await apiPost({sheet:"water",op:"upsert",row:r});done++;
-        if(done%10===0)toast("กำลังซิงค์น้ำประปา "+done+"/"+wnew.length);}
-      toast("✅ นำเข้าน้ำประปา+ซิงค์ "+wnew.length+" แถวแล้ว");
-    }catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    await syncRows("water",wnew,"น้ำประปา",wdel);
     ev.target.value="";return;
   }
 
@@ -2555,7 +2612,7 @@ document.getElementById("csvFile").onchange=async(ev)=>{
     erows.forEach(r=>elecmonth.push(r));
     emsave();rerenderActive();
     toast("นำเข้าไฟฟ้ารายเดือน "+erows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
-    if(CLOUD()){try{let dn=0;for(const r of erows){await apiPost({sheet:"elecmonth",op:"upsert",row:r});dn++;if(dn%10===0)toast("กำลังซิงค์ไฟฟ้า "+dn+"/"+erows.length);}toast("✅ นำเข้าไฟฟ้า+ซิงค์ "+erows.length+" แถวแล้ว");}catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    await syncRows("elecmonth",erows,"มิเตอร์ไฟฟ้า");
     ev.target.value="";return;
   }
 
@@ -2576,11 +2633,7 @@ document.getElementById("csvFile").onchange=async(ev)=>{
     rows.forEach(r=>machine.push(r));
     mcsave();rerenderActive();
     toast("นำเข้าเครื่องกำเนิดไอน้ำ "+rows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
-    if(CLOUD()){try{
-      for(const r of mdel) await apiPost({sheet:"machine",op:"delete",row:{id:r.id}});
-      let dn=0;for(const r of rows){await apiPost({sheet:"machine",op:"upsert",row:r});dn++;if(dn%20===0)toast("กำลังซิงค์ "+dn+"/"+rows.length);}
-      toast("✅ นำเข้าเครื่องกำเนิดไอน้ำ+ซิงค์ "+rows.length+" แถวแล้ว");
-    }catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    await syncRows("machine",rows,"เครื่องกำเนิดไอน้ำ",mdel);
     ev.target.value="";return;
   }
 
@@ -2601,11 +2654,7 @@ document.getElementById("csvFile").onchange=async(ev)=>{
     rows.forEach(r=>boiler.push(r));
     bsave();rerenderActive();
     toast("นำเข้าน้ำมันเตา "+rows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
-    if(CLOUD()){try{
-      for(const r of del) await apiPost({sheet:"boiler",op:"delete",row:{id:r.id}});
-      for(const r of rows) await apiPost({sheet:"boiler",op:"upsert",row:r});
-      toast("นำเข้าน้ำมันเตา+ซิงค์ "+rows.length+" แถวแล้ว");
-    }catch(e){toast("นำเข้าแล้วแต่ซิงค์ไม่ครบ กด ⬆ อัปโหลดอีกครั้ง");}}
+    await syncRows("boiler",rows,"น้ำมันเตารายโรง",del);
     ev.target.value="";return;
   }
 
