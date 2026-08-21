@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19a (ซิงค์ทนหลุด + ส่งซ้ำอัตโนมัติ)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19b (กันตัวเลขเพี้ยน + ล้างยอดรายเดือนเก่า)</b></p>
 </header>
 
 <div class="wrap">
@@ -777,6 +777,18 @@ async function refreshFromCloud(force){
     if(d&&d.ok){
       if(d.users)window._users=d.users;
       // force = กด "ดึงจาก Sheet" เอง → ทับทั้งหมด · auto = ถ้า Sheet ว่างในชุดไหน เก็บของในเครื่องไว้ (กันข้อมูลหายเมื่อ backend ยังไม่มีชีตนั้น)
+      /* บังคับให้ช่องตัวเลขเป็นตัวเลขเสมอ — ถ้าชีตส่งมาเป็นข้อความ (คอลัมน์เหลื่อม/จัดรูปแบบผิด)
+         การบวกจะกลายเป็นการต่อข้อความ แล้วผลรวมจะเพี้ยนเป็น ∞ */
+      const NUMF={records:["solar_roof","solar_farm","use_office","use_pump","fuel","lpg","alum","caoh","sugar"],
+        boiler:["hours","liters","lpg"], machine:["hours","fuel_qty"],
+        water:["raw3000","m_prev","m_curr","produced","alum","caoh","sugar","hours"],
+        elecmonth:["prev","curr","usage"]};
+      const num=(arr,keys)=>Array.isArray(arr)?arr.map(function(r){
+        const o=Object.assign({},r);
+        keys.forEach(function(k){ if(o[k]!==undefined&&o[k]!==""){var v=parseFloat(o[k]); o[k]=isFinite(v)?v:0;} else o[k]=0; });
+        return o;
+      }):arr;
+      Object.keys(NUMF).forEach(function(s){ if(d[s])d[s]=num(d[s],NUMF[s]); });
       // auto: ถ้าบนชีตมีน้อยกว่าในเครื่อง = ชีตยังรับไม่ครบ ห้ามทับ (กันข้อมูลหายแบบเงียบ ๆ)
       let short=[];
       const pick=(cloud,local,name)=>{
@@ -794,9 +806,13 @@ async function refreshFromCloud(force){
         if(d.delreq)delreq=d.delreq;
         machine=pick(d.machine,machine,"เครื่องกำเนิดไอน้ำ");
         const wb=document.getElementById("cloudWarn");
-        if(short.length&&wb){wb.style.display="";wb.innerHTML=
-          "⚠ <b>ข้อมูลบนชีตยังไม่ครบ</b> — "+short.join(" · ")+"<br>"+
-          "ระบบเก็บข้อมูลในเครื่องนี้ไว้ให้แล้ว (ไม่ทับด้วยของที่ขาด) กรุณากด <b>⬆ อัปโหลดขึ้น Sheet</b> เพื่อส่งส่วนที่ขาดขึ้นไป";}
+        if(short.length&&wb){
+          const isAdm=currentUser&&ROLES[currentUser.role]&&ROLES[currentUser.role].admin;
+          wb.style.display="";wb.innerHTML=
+            "⚠ <b>ข้อมูลบนชีตยังไม่ครบ</b> — "+short.join(" · ")+"<br>"+
+            "ระบบเก็บข้อมูลในเครื่องนี้ไว้ให้แล้ว ไม่ทับด้วยของที่ขาด<br>"+
+            (isAdm ? "กรุณากด <b>⬆ อัปโหลดขึ้น Sheet</b> เพื่อส่งส่วนที่ขาดขึ้นไป"
+                   : "<b>ไม่กระทบงานบันทึกประจำวันของท่าน บันทึกต่อได้ตามปกติ</b> — กรุณาแจ้งผู้ดูแลระบบให้ตรวจสอบ");}
         save();bsave();stsave();emsave();rpsave();wsave();lgsave();mcsave();drsave();updateDrBadge();rerenderActive();
       }
       return true;
@@ -1904,12 +1920,20 @@ async function cleanDuplicates(){
   });
   // 2) สารเคมีใน records ที่ซ้ำกับวันที่ในน้ำประปา (ข้อมูลชุดเก่าก่อนย้ายมาแท็บน้ำประปา)
   const chemRows=records.filter(function(r){return r.date&&seen[r.date]&&((+r.alum||0)+(+r.caoh||0)+(+r.sugar||0))>0;});
-  // 3) น้ำมันเตา: id ซ้ำ / เดือน+รายการซ้ำ
+  // 3) น้ำมันเตา: (ก) เดือนไหนมีรายวันแล้ว ให้ทิ้งแถวรวมรายเดือนแบบเก่า (นับซ้ำ)
+  //               (ข) แถวที่ตัวเลขเสีย (ไม่ใช่จำนวน) (ค) ซ้ำซ้อนตรงตัว
+  const dayMonths={};
+  boiler.forEach(function(r){if(r.date)dayMonths[r.month]=1;});
   const seenB={}, dupB=[], keepB=[];
-  boiler.forEach(function(r){const k=r.month+"|"+r.item+"|"+r.hours+"|"+r.liters;
-    if(seenB[k]){dupB.push(r);}else{seenB[k]=1;keepB.push(r);}});
+  boiler.forEach(function(r){
+    const badNum=!isFinite(+r.liters)||!isFinite(+r.hours);
+    const oldMonthly=!r.date&&dayMonths[r.month];
+    const k=(r.date||"-")+"|"+r.month+"|"+r.item+"|"+r.hours+"|"+r.liters;
+    if(badNum||oldMonthly||seenB[k]){dupB.push(r);}else{seenB[k]=1;keepB.push(r);}
+  });
+  const nOld=boiler.filter(function(r){return !r.date&&dayMonths[r.month];}).length;
   if(!dupW.length&&!chemRows.length&&!dupB.length){toast("✅ ไม่พบข้อมูลซ้ำ");return;}
-  if(!confirm("พบข้อมูลซ้ำ:\n• น้ำประปา (วันที่ซ้ำ) "+dupW.length+" แถว\n• สารเคมีชุดเก่าใน 'รายการบันทึก' "+chemRows.length+" แถว\n• น้ำมันเตาซ้ำ "+dupB.length+" แถว\n\nล้างทิ้งเพื่อให้ยอดถูกต้อง?"))return;
+  if(!confirm("พบข้อมูลซ้ำ/ผิดปกติ:\n• น้ำประปา (วันที่ซ้ำ) "+dupW.length+" แถว\n• สารเคมีชุดเก่าใน 'รายการบันทึก' "+chemRows.length+" แถว\n• น้ำมันเตาที่ต้องล้าง "+dupB.length+" แถว (เป็นยอดรวมรายเดือนแบบเก่า "+nOld+" แถว)\n\nเหลือน้ำมันเตา "+keepB.length+" แถว\n\nล้างทิ้งเพื่อให้ยอดถูกต้อง?"))return;
   const btn=document.getElementById("btnClean"); const old=btn.textContent; btn.disabled=true;
   // ลบในเครื่อง
   water=keepW; wsave();
