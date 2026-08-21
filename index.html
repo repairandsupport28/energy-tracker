@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19e (จัดลำดับการ์ดหน้าไอน้ำใหม่)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-20a (ถอดฟอร์มย้อนหลัง เหลือฟอร์มรายวันอย่างเดียว)</b></p>
 </header>
 
 <div class="wrap">
@@ -514,9 +514,11 @@
     </form>
 <div style="display:none"><input type="date" id="f_water_date"><input type="text" id="f_water_user"><input type="number" id="f_alum"><input type="number" id="f_caoh"><input type="number" id="f_sugar"></div>
   </div>
-    <div class="card entry-only">
-      <h2>บันทึกการใช้ไอน้ำรายโรงงาน (รายเดือน / ย้อนหลัง)</h2>
-      <div class="hint">ใช้กรอกย้อนหลังหรือนำเข้าข้อมูลเก่า — รายการคือ<b>โรงงานผู้ใช้ไอน้ำ</b> (NC, NG, P, IMI, B, ACID) ไม่ใช่เครื่องกำเนิดไอน้ำ · การบันทึกประจำวันให้ใช้ฟอร์มด้านบน</div>
+    <!-- ช่องแก้ไขรายการน้ำมันเตา — ซ่อนไว้ โผล่เฉพาะตอนกดปุ่ม "แก้" ในตารางรายการบันทึก
+         (เดิมเป็นฟอร์มกรอกย้อนหลัง ถอดออกเพราะทำให้ยอดถูกนับซ้ำกับฟอร์มรายวัน) -->
+    <div class="card" id="bEditCard" style="display:none;border-left:5px solid #f59e0b">
+      <h2>✏️ แก้ไขรายการน้ำมันเตา</h2>
+      <div class="hint" id="bEditWhat">แก้ไขได้เฉพาะแถวที่เลือกมาจากตาราง "รายการบันทึกน้ำมันเตา" · สร้างรายการใหม่จากที่นี่ไม่ได้ — การบันทึกประจำวันให้ใช้ฟอร์ม <b>บันทึกไอน้ำรายวัน</b></div>
       <form id="boilerForm">
         <div class="grid">
           <div><label>เดือน (ปีงบ)</label>
@@ -536,8 +538,8 @@
           <div><label>วันที่ (ถ้าบันทึกรายวัน)</label><input type="date" id="b_date"></div>
         </div>
         <div class="row-actions">
-          <button type="submit" class="btn btn-primary">💾 บันทึก</button>
-          <button type="button" class="btn btn-ghost" id="bClear">ล้างฟอร์ม</button>
+          <button type="submit" class="btn btn-primary">💾 บันทึกการแก้ไข</button>
+          <button type="button" class="btn btn-ghost" id="bClear">ยกเลิก</button>
         </div>
         <input type="hidden" id="b_id">
       </form>
@@ -1486,13 +1488,28 @@ document.getElementById("boilerForm").onsubmit=e=>{
     user:(document.getElementById("b_user").value||"").trim()||(currentUser?currentUser.username:""),
     date:document.getElementById("b_date").value||""};
   if(rec.date)rec.month=rec.date.slice(0,7);
-  if(id){boiler[boiler.findIndex(r=>r.id===id)]=rec;toast("แก้ไขแล้ว");}
-  else{boiler.push(rec);toast("บันทึกแล้ว");}
+  if(!id){toast("ช่องนี้ใช้แก้ไขรายการเดิมเท่านั้น — บันทึกใหม่ให้ใช้ฟอร์มบันทึกไอน้ำรายวัน");return;}
+  const at=boiler.findIndex(r=>r.id===id);
+  if(at<0){toast("ไม่พบรายการที่จะแก้ไข");bClearForm();return;}
+  // ห้ามแก้จนกลายเป็นยอดรวมรายเดือนทับเดือนที่มีข้อมูลรายวันอยู่แล้ว (กันนับซ้ำ)
+  if(!rec.date && boiler.some(r=>r.id!==id&&r.month===rec.month&&r.date)){
+    alert("บันทึกไม่ได้\n\nเดือน "+thMonth(rec.month)+" มีข้อมูลรายวันอยู่แล้ว\n"+
+          "ถ้าใส่เป็นยอดรวมทั้งเดือน ยอดจะถูกนับซ้ำ\n\nกรุณาระบุวันที่ให้ตรงกับรายการเดิม");
+    return;
+  }
+  boiler[at]=rec;toast("แก้ไขแล้ว");
   bsave();pushRow("boiler",rec);bClearForm();renderBoiler();
 };
-function bClearForm(){document.getElementById("boilerForm").reset();document.getElementById("b_id").value="";}
+function bClearForm(){document.getElementById("boilerForm").reset();document.getElementById("b_id").value="";
+  const c=document.getElementById("bEditCard");if(c)c.style.display="none";}
+function canEditBoiler(){const r=currentUser?currentUser.role:"";return ["admin","head_elec","head_mech","steam"].indexOf(r)>=0;}
 document.getElementById("bClear").onclick=bClearForm;
 function bEdit(id){const r=boiler.find(x=>x.id===id);if(!r)return;
+  if(!canEditBoiler()){toast("ไม่มีสิทธิ์แก้ไขรายการนี้");return;}
+  const c=document.getElementById("bEditCard");if(c)c.style.display="";
+  const w=document.getElementById("bEditWhat");
+  if(w)w.innerHTML="กำลังแก้ไข: <b>"+(r.date?thDate(r.date):"ยอดรวม "+thMonth(r.month))+" · โรง "+r.item+
+    "</b> — แก้เสร็จกด 💾 บันทึกการแก้ไข หรือกดยกเลิกเพื่อปิด";
   document.getElementById("b_id").value=r.id;document.getElementById("b_month").value=r.month;
   document.getElementById("b_item").value=r.item;document.getElementById("b_hours").value=r.hours;document.getElementById("b_liters").value=r.liters;
   document.getElementById("b_lpg").value=r.lpg||"";document.getElementById("b_user").value=r.user||"";
