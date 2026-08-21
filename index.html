@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19b (กันตัวเลขเพี้ยน + ล้างยอดรายเดือนเก่า)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19c (แก้ยอด ∞ ที่ต้นทาง + ปุ่มล้างน้ำมันเตา)</b></p>
 </header>
 
 <div class="wrap">
@@ -119,6 +119,7 @@
       <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">📥 นำเข้า CSV<input type="file" id="csvFile" accept=".csv" style="display:none"></label>
       <span id="whoami" style="font-size:12.5px;color:var(--muted);font-weight:600"></span>
       <button class="btn btn-ghost btn-sm" id="btnClean" onclick="cleanDuplicates()">🧹 ล้างข้อมูลซ้ำ</button>
+      <button class="btn btn-ghost btn-sm" id="btnResetB" onclick="resetBoiler()" style="border-color:#dc2626;color:#b91c1c">🧯 ล้างน้ำมันเตาเริ่มใหม่</button>
       <button class="btn btn-ghost btn-sm" id="btnLogout" style="display:none" onclick="doLogout()">ออกจากระบบ</button>
     </div>
     <div id="cloudWarn" style="display:none;background:#fef2f2;border:2px solid #dc2626;color:#b91c1c;
@@ -670,12 +671,25 @@ const FIELDS=[
 ];
 let records=load();
 
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function load(){try{return fixNums(JSON.parse(localStorage.getItem(KEY))||[],["solar_roof","solar_farm","use_office","use_pump","fuel","lpg","alum","caoh","sugar"])}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(records))}
 function num(id){const v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v}
 function fmt(n){return (Math.round(n*100)/100).toLocaleString("th-TH")}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+/* บังคับช่องตัวเลขให้เป็นตัวเลขจริงเสมอ — ถ้าเป็นข้อความ การบวกจะกลายเป็นการต่อข้อความ
+   แล้วยอดรวมจะเพี้ยนเป็น ∞ (ใช้ทั้งตอนอ่านจากเครื่องและตอนดึงจากชีต) */
+function fixNums(arr,keys){
+  if(!Array.isArray(arr))return [];
+  return arr.map(function(r){
+    if(!r||typeof r!=="object")return r;
+    keys.forEach(function(k){
+      if(r[k]===undefined||r[k]===null||r[k]===""){r[k]=0;return;}
+      var v=parseFloat(r[k]); r[k]=isFinite(v)?v:0;
+    });
+    return r;
+  });
+}
 
 /* ===== Cloud sync: Google Sheet ผ่าน Apps Script ===== */
 const CFGKEY="agri_api_url";
@@ -1429,8 +1443,9 @@ function thMonth(ym){const s=String(ym||"");if(!/^\d{4}-\d{2}/.test(s))return s|
 let boiler, bstock;
 // โหลดข้อมูลจาก PDF ปีงบ 69 เป็นฐานข้อมูลตั้งต้นอัตโนมัติ (ครั้งแรก)
 if(localStorage.getItem(BKEY)===null){bseed();}
-else{boiler=JSON.parse(localStorage.getItem(BKEY));
-     bstock=JSON.parse(localStorage.getItem(BSTOCK)||'{"recv":250000,"issue":75000,"remain":225512}');}
+else{boiler=fixNums(JSON.parse(localStorage.getItem(BKEY)),["hours","liters","lpg"]);
+     bstock=JSON.parse(localStorage.getItem(BSTOCK)||'{"recv":250000,"issue":75000,"remain":225512}');
+     bsave();}
 if(!bstock)bstock={};
 ["recv","issue","remain","alum_remain","caoh_remain"].forEach(k=>{if(bstock[k]===undefined)bstock[k]=0;});
 function bsave(){localStorage.setItem(BKEY,JSON.stringify(boiler));}
@@ -1540,7 +1555,7 @@ const STATIONS=["T.1","T.2","T.3","T.4","T.5","T.7","T.8","P28","T9(IMI)"];
 // สถานีที่หน้าปัดมิเตอร์อ่านเป็น kWh (ต้องหาร 1,000 เพื่อให้เป็น MWh เท่ากับสถานีอื่น)
 const KWH_METERS={"P28":1};
 function emScale(st){return KWH_METERS[st]?1000:1;}
-let elecmonth=JSON.parse(localStorage.getItem(EMKEY)||"[]");
+let elecmonth=fixNums(JSON.parse(localStorage.getItem(EMKEY)||"[]"),["prev","curr","usage"]);
 function emsave(){localStorage.setItem(EMKEY,JSON.stringify(elecmonth));}
 function emId(m,st){return "em_"+m+"_"+st;}
 // เติม dropdown เดือน
@@ -1614,7 +1629,7 @@ document.getElementById("btnEmCsv").onclick=function(){
 
 /* ============ เฟส B: รายงานรายเดือน ============ */
 const MCKEY="agri_machine_v1";
-let machine=JSON.parse(localStorage.getItem(MCKEY)||"[]");
+let machine=fixNums(JSON.parse(localStorage.getItem(MCKEY)||"[]"),["hours","fuel_qty"]);
 function mcsave(){localStorage.setItem(MCKEY,JSON.stringify(machine));}
 const LOGKEY="agri_loginlog_v1";
 let loginlog=JSON.parse(localStorage.getItem(LOGKEY)||"[]");
@@ -1761,7 +1776,7 @@ function exportReportDocx(){
 
 /* ============ น้ำประปา (water) ============ */
 const WKEY="agri_water_v1";
-let water=JSON.parse(localStorage.getItem(WKEY)||"[]");
+let water=fixNums(JSON.parse(localStorage.getItem(WKEY)||"[]"),["raw3000","m_prev","m_curr","produced","alum","caoh","sugar","hours"]);
 function wsave(){localStorage.setItem(WKEY,JSON.stringify(water));}
 (function(){var el=document.getElementById("w_date");if(el)el.valueAsDate=new Date();
   var wf=document.getElementById("wRecFilter");if(wf)BMONTHS.forEach(function(ym){var o=document.createElement("option");o.value=ym;o.textContent=thMonth(ym);wf.appendChild(o);});})();
@@ -1909,6 +1924,38 @@ document.getElementById("btnWaterCsv").onclick=function(){
   water.slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(r){lines.push(cols.map(function(c){return (r[c]!==undefined&&r[c]!==null)?String(r[c]).replace(/,/g,";"):"";}).join(","));});
   var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="water.csv";a.click();toast("ดาวน์โหลด CSV แล้ว");
 };
+
+/* ============ ล้างน้ำมันเตาทั้งหมดแล้วเริ่มใหม่ (admin) ============
+   ใช้เมื่อข้อมูลน้ำมันเตาปนกันจนยอดเพี้ยน — ลบทั้งในเครื่องและบนชีต
+   แล้วค่อยนำเข้าไฟล์ CSV รายวันใหม่ให้สะอาด */
+async function resetBoiler(){
+  if(!window._isAdmin){toast("เฉพาะผู้ดูแลระบบ");return;}
+  const n=boiler.length;
+  if(!n){toast("ไม่มีข้อมูลน้ำมันเตาให้ล้าง");return;}
+  if(!confirm("ล้างข้อมูลน้ำมันเตารายโรงทั้งหมด "+n+" แถว\n(ทั้งในเครื่องนี้และบนฐานข้อมูลกลาง)\n\n"+
+              "ข้อมูลเครื่องกำเนิดไอน้ำ · น้ำประปา · ไฟฟ้า จะไม่ถูกแตะต้อง\n\n"+
+              "หลังล้างเสร็จ ให้กด 📥 นำเข้า CSV ไฟล์น้ำมันเตารายวันอีกครั้ง\n\nยืนยันล้าง?"))return;
+  const old=boiler.slice();
+  boiler=[];bsave();rerenderActive();
+  const btn=document.getElementById("btnResetB");const lbl=btn?btn.textContent:"";
+  if(btn)btn.disabled=true;
+  if(CLOUD()){
+    let d=0,fail=0;
+    for(const r of old){
+      try{const res=await apiPost({sheet:"boiler",op:"delete",row:{id:r.id}});if(res&&res.ok===false)fail++;}
+      catch(e){fail++;}
+      d++;if(btn)btn.textContent="🧯 "+d+"/"+old.length;
+      if(d%20===0)toast("กำลังล้างบนชีต "+d+"/"+old.length);
+    }
+    if(btn){btn.disabled=false;btn.textContent=lbl;}
+    alert("ล้างน้ำมันเตาเรียบร้อย\n\nลบในเครื่อง "+old.length+" แถว\nลบบนชีตสำเร็จ "+(old.length-fail)+" แถว"+
+          (fail?"\nลบไม่สำเร็จ "+fail+" แถว (กดล้างซ้ำอีกครั้งได้)":"")+
+          "\n\nขั้นต่อไป: กด 📥 นำเข้า CSV แล้วเลือกไฟล์น้ำมันเตารายวัน");
+  }else{
+    if(btn){btn.disabled=false;btn.textContent=lbl;}
+    alert("ล้างในเครื่องแล้ว "+old.length+" แถว (ยังไม่ได้เชื่อมฐานข้อมูลกลาง)");
+  }
+}
 
 /* ============ ล้างข้อมูลซ้ำ (admin) ============ */
 async function cleanDuplicates(){
@@ -2747,7 +2794,7 @@ function applyPermissions(role){
     if(tag)tag.classList.forEach(c=>{if(c.indexOf("u-")===0)unit=c.slice(2);});
     box.style.display=(unit&&r.boxes.indexOf(unit)>=0)?"":"none";
   });
-  ["btnUpload","btnWipe","btnClean"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=r.admin?"":"none";});
+  ["btnUpload","btnWipe","btnClean","btnResetB"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=r.admin?"":"none";});
   const imp=document.getElementById("csvFile");if(imp&&imp.parentElement)imp.parentElement.style.display=r.admin?"":"none";
   const lo=document.getElementById("btnLogout");if(lo)lo.style.display="";
   const who=document.getElementById("whoami");
