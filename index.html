@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19c (แก้ยอด ∞ ที่ต้นทาง + ปุ่มล้างน้ำมันเตา)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-19d (แถบเลือกช่วงเวลาชุดเดียว + ปุ่มลัด)</b></p>
 </header>
 
 <div class="wrap">
@@ -556,14 +556,30 @@
 
 
 
+    <!-- แถบเลือกช่วงเวลาชุดเดียว คุมทั้งตารางชั่วโมงเดินเครื่องและตารางสรุปน้ำมันเตา -->
+    <div class="card view-only" style="border-left:5px solid var(--brand)">
+      <span class="blk">ช่วงเวลาที่ดู</span>
+      <div class="src">ตั้งค่าที่นี่ที่เดียว ตารางชั่วโมงเดินเครื่องและตารางสรุปน้ำมันเตาด้านล่างจะเปลี่ยนตามพร้อมกัน</div>
+      <div class="controls" style="align-items:flex-end">
+        <div><label>มุมมอง</label><select id="sMode" onchange="rgModeChanged()">
+          <option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select></div>
+        <div class="rg-day"><label>ตั้งแต่วันที่</label><input type="date" id="sDayFrom" onchange="applyRange()"></div>
+        <div class="rg-day"><label>ถึงวันที่</label><input type="date" id="sDayTo" onchange="applyRange()"></div>
+        <div class="rg-mon"><label>ตั้งแต่เดือน</label><input type="month" id="sMonFrom" onchange="applyRange()"></div>
+        <div class="rg-mon"><label>ถึงเดือน</label><input type="month" id="sMonTo" onchange="applyRange()"></div>
+        <div class="rg-fy"><label>ปีงบ</label><select id="sFy" onchange="applyRange()"></select></div>
+      </div>
+      <div class="section-title" style="margin-top:6px">เลือกเร็ว</div>
+      <div id="rgChips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div id="rgInfo" style="margin-top:10px;font-size:13.5px;color:var(--brand);font-weight:700"></div>
+    </div>
+
     <div class="card view-only">
       <span class="blk">ชั่วโมงเดินเครื่องกำเนิดไอน้ำ</span>
-      <div class="src">ใช้วางแผนซ่อมบำรุง · หน่วย: ชั่วโมง · ที่มา: บันทึกไอน้ำรายวัน</div>
+      <div class="src">ใช้วางแผนซ่อมบำรุง · หน่วย: ชั่วโมง · ที่มา: บันทึกไอน้ำรายวัน · <b>ช่วงเวลาตั้งที่แถบด้านบน</b></div>
       <div class="controls">
-        <div><label>มุมมอง</label><select id="mcMode" onchange="renderMachine()">
-          <option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select></div>
-        <div><label>ตั้งแต่วันที่</label><input type="date" id="mcFrom" onchange="renderMachine()"></div>
-        <div><label>ถึงวันที่</label><input type="date" id="mcTo" onchange="renderMachine()"></div>
+        <div style="display:none"><select id="mcMode"><option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select>
+          <input type="date" id="mcFrom"><input type="date" id="mcTo"></div>
         <div><label>ค่าที่แสดง</label><select id="mcVal" onchange="renderMachine()">
           <option value="hours">ชั่วโมงเดินเครื่อง</option><option value="fuel_qty">เชื้อเพลิงที่ใช้</option></select></div>
       </div>
@@ -575,12 +591,10 @@
     </div>
     <div class="card view-only">
       <span class="blk">ตารางสรุปน้ำมันเตา — เลือกช่วงเวลาและโรงงานเอง</span>
-      <div class="src">เลือกดูราย <b>วัน</b> / <b>เดือน</b> / <b>ปีงบ</b> · เลือกโรงงานกี่โรงก็ได้ · หน่วย: ลิตร</div>
+      <div class="src">เลือกโรงงานกี่โรงก็ได้ · หน่วย: ลิตร · <b>ช่วงเวลาตั้งที่แถบด้านบน</b></div>
       <div class="controls">
-        <div><label>มุมมอง</label><select id="bfMode" onchange="renderBoilerFlex()">
-          <option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select></div>
-        <div><label>ตั้งแต่วันที่</label><input type="date" id="bfFrom" onchange="renderBoilerFlex()"></div>
-        <div><label>ถึงวันที่</label><input type="date" id="bfTo" onchange="renderBoilerFlex()"></div>
+        <div style="display:none"><select id="bfMode"><option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select>
+          <input type="date" id="bfFrom"><input type="date" id="bfTo"></div>
         <div><label>ค่าที่แสดง</label><select id="bfVal" onchange="renderBoilerFlex()">
           <option value="liters">น้ำมันเตา (ลิตร)</option><option value="lpg">LPG (กก.)</option><option value="hours">ชั่วโมงเดินเครื่อง</option></select></div>
       </div>
@@ -784,7 +798,7 @@ async function pingCloud(){
 }
 function pushStock(st){if(CLOUD())apiPost({sheet:"config",op:"stock",row:st}).catch(()=>{});}
 function rerenderActive(){const a=document.querySelector(".tab.active");if(!a)return;const t=a.dataset.tab;
-  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();renderBoilerFlex();renderMachine();renderSteamCalc();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();else if(t==="mine")renderMine();else if(t==="delreq")renderDelreq();}
+  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();rgInit();renderBoilerFlex();renderMachine();renderSteamCalc();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();else if(t==="mine")renderMine();else if(t==="delreq")renderDelreq();}
 async function refreshFromCloud(force){
   try{
     const d=await apiGet();
@@ -851,7 +865,7 @@ function openTab(t){
   document.querySelectorAll(".view-only").forEach(el=>el.style.display=(curMode==="view"?"":"none"));
   if(t==="summary")renderSummary();
   if(t==="records")renderRecords();
-  if(t==="boiler"){renderBoiler();renderBoilerFlex();renderMachine();renderSteamCalc();}
+  if(t==="boiler"){renderBoiler();rgInit();renderBoilerFlex();renderMachine();renderSteamCalc();}
   if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}
   if(t==="report")loadReportForm();
   if(t==="water"){renderWater();renderChem();}
@@ -2033,6 +2047,104 @@ function renderPEA(){
     {label:"Off Peak (RATE B)",data:ms.map(x=>{const q=report.find(y=>y.month===x)||{};return +q.rate_b||0;}),backgroundColor:"#0891b2"},
     {label:"Holiday (RATE C)",data:ms.map(x=>{const q=report.find(y=>y.month===x)||{};return +q.rate_c||0;}),backgroundColor:"#16a34a"}
   ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"kWh"}}}}});
+}
+
+/* ============ แถบเลือกช่วงเวลาชุดเดียว (คุม 2 ตาราง) ============ */
+const RGKEY="agri_range_v1";
+function d2s(d){const p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
+function lastDay(ym){const p=ym.split("-");return d2s(new Date(+p[0],+p[1],0));}
+function fyRange(fy){                       // fy = ปีงบ พ.ศ. 2 หลัก เช่น 69
+  const y=2500+ (+fy) -543;                 // 69 -> 2026
+  return [(y-1)+"-10-01", y+"-09-30"];
+}
+// ปีงบที่มีข้อมูลจริง
+function fyList(){
+  const s={};
+  const add=m=>{const t=validYM(m);if(t)s[(fyStartOf(t)+1+543)%100]=1;};
+  boiler.forEach(r=>add(r.date?r.date.slice(0,7):r.month));
+  machine.forEach(r=>add(r.date?r.date.slice(0,7):r.month));
+  const out=Object.keys(s).map(Number).sort((a,b)=>a-b);
+  return out.length?out:[(new Date().getFullYear()+543)%100];
+}
+const RGCHIPS=[
+  ["วันนี้",        ()=>{const t=d2s(new Date());return [t,t];}],
+  ["7 วันล่าสุด",   ()=>{const e=new Date(),s=new Date();s.setDate(s.getDate()-6);return [d2s(s),d2s(e)];}],
+  ["30 วันล่าสุด",  ()=>{const e=new Date(),s=new Date();s.setDate(s.getDate()-29);return [d2s(s),d2s(e)];}],
+  ["เดือนนี้",      ()=>{const n=new Date(),f=new Date(n.getFullYear(),n.getMonth(),1);return [d2s(f),d2s(n)];}],
+  ["เดือนที่แล้ว",  ()=>{const n=new Date(),f=new Date(n.getFullYear(),n.getMonth()-1,1),l=new Date(n.getFullYear(),n.getMonth(),0);return [d2s(f),d2s(l)];}],
+  ["ปีงบนี้",       ()=>{const n=new Date();const fy=(n.getMonth()+1>=10?n.getFullYear()+1:n.getFullYear())+543;return fyRange(fy%100);}],
+  ["ทั้งหมด",       ()=>["",""]]
+];
+function rgChipsInit(){
+  const box=document.getElementById("rgChips");if(!box||box.dataset.done)return;
+  box.dataset.done="1";
+  box.innerHTML=RGCHIPS.map((c,i)=>'<button class="btn btn-ghost btn-sm" onclick="rgQuick('+i+')">'+c[0]+'</button>').join("");
+}
+function rgQuick(i){
+  const [f,t]=RGCHIPS[i][1]();
+  const mode=document.getElementById("sMode").value;
+  if(mode==="fy"){document.getElementById("sMode").value="month";rgModeChanged(true);}
+  document.getElementById("sDayFrom").value=f;document.getElementById("sDayTo").value=t;
+  document.getElementById("sMonFrom").value=f?f.slice(0,7):"";
+  document.getElementById("sMonTo").value=t?t.slice(0,7):"";
+  applyRange();
+}
+function rgModeChanged(skip){
+  const m=document.getElementById("sMode").value;
+  document.querySelectorAll(".rg-day").forEach(e=>e.style.display=(m==="day"?"":"none"));
+  document.querySelectorAll(".rg-mon").forEach(e=>e.style.display=(m==="month"?"":"none"));
+  document.querySelectorAll(".rg-fy").forEach(e=>e.style.display=(m==="fy"?"":"none"));
+  if(m==="fy"){
+    const sel=document.getElementById("sFy"),cur=sel.value;
+    sel.innerHTML='<option value="">ทุกปีงบ</option>'+fyList().map(y=>'<option value="'+y+'">ปีงบ '+y+'</option>').join("");
+    if(cur)sel.value=cur;
+  }
+  if(!skip)applyRange();
+}
+function applyRange(){
+  const m=document.getElementById("sMode").value;
+  let from="",to="";
+  if(m==="day"){from=document.getElementById("sDayFrom").value;to=document.getElementById("sDayTo").value;}
+  else if(m==="month"){
+    const a=document.getElementById("sMonFrom").value,b=document.getElementById("sMonTo").value;
+    if(a)from=a+"-01"; if(b)to=lastDay(b);
+  }else{
+    const fy=document.getElementById("sFy").value;
+    if(fy){const r=fyRange(fy);from=r[0];to=r[1];}
+  }
+  ["mc","bf"].forEach(function(p){
+    const md=document.getElementById(p+"Mode");if(md)md.value=m;
+    const f=document.getElementById(p+"From");if(f)f.value=from;
+    const t=document.getElementById(p+"To");if(t)t.value=to;
+  });
+  const info=document.getElementById("rgInfo");
+  if(info){
+    if(!from&&!to)info.textContent="กำลังแสดง: ข้อมูลทั้งหมดที่มี · มุมมอง"+(m==="day"?"รายวัน":m==="month"?"รายเดือน":"รายปีงบ");
+    else{
+      const days=(from&&to)?Math.round((new Date(to)-new Date(from))/86400000)+1:null;
+      info.textContent="กำลังแสดง: "+(from?thDate(from):"เริ่มแรก")+"  ถึง  "+(to?thDate(to):"ล่าสุด")+
+        (days?"  ("+days.toLocaleString("th-TH")+" วัน)":"")+" · มุมมอง"+(m==="day"?"รายวัน":m==="month"?"รายเดือน":"รายปีงบ");
+    }
+  }
+  try{localStorage.setItem(RGKEY,JSON.stringify({m:m,
+    df:document.getElementById("sDayFrom").value,dt:document.getElementById("sDayTo").value,
+    mf:document.getElementById("sMonFrom").value,mt:document.getElementById("sMonTo").value,
+    fy:document.getElementById("sFy").value}));}catch(e){}
+  renderMachine();renderBoilerFlex();
+}
+function rgInit(){
+  rgChipsInit();
+  if(document.getElementById("sMode").dataset.done)return;
+  document.getElementById("sMode").dataset.done="1";
+  let s=null;try{s=JSON.parse(localStorage.getItem(RGKEY)||"null");}catch(e){}
+  if(s){
+    document.getElementById("sMode").value=s.m||"month";
+    document.getElementById("sDayFrom").value=s.df||"";document.getElementById("sDayTo").value=s.dt||"";
+    document.getElementById("sMonFrom").value=s.mf||"";document.getElementById("sMonTo").value=s.mt||"";
+    rgModeChanged(true);
+    if(s.fy)document.getElementById("sFy").value=s.fy;
+  }else rgModeChanged(true);
+  applyRange();
 }
 
 /* ============ สรุปชั่วโมงเดินเครื่องกำเนิดไอน้ำ ============ */
