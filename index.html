@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-20a (ถอดฟอร์มย้อนหลัง เหลือฟอร์มรายวันอย่างเดียว)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-20b (โหมดฉุกเฉิน HP ลดแรงดันจ่ายโรงอื่น)</b></p>
 </header>
 
 <div class="wrap">
@@ -489,7 +489,7 @@
           </div>
           <div class="section-title">ก) เครื่องกำเนิดไอน้ำที่เดินวันนี้ — ชั่วโมงเดินเครื่อง + เชื้อเพลิงที่ใช้</div>
           <div class="table-scroll">
-            <table id="machTable"><tr><th>เครื่อง</th><th>แรงดัน</th><th>เริ่ม</th><th>เลิก</th><th>ชม.</th><th>เชื้อเพลิงที่ใช้</th></tr></table>
+            <table id="machTable"><tr><th>เครื่อง</th><th>แรงดัน</th><th>เริ่ม</th><th>เลิก</th><th>ชม.</th><th>เชื้อเพลิงที่ใช้</th><th>โหมดฉุกเฉิน</th></tr></table>
           </div>
 
           <div class="section-title">ข) โรงงานที่ใช้ไอน้ำวันนี้ (ใช้ปันส่วนเชื้อเพลิง)</div>
@@ -966,7 +966,11 @@ function mKey(id){return id.replace(/\./g,"_");}
       '<td><input type="text" inputmode="numeric" maxlength="5" placeholder="0800" id="mc_'+k+'_s" oninput="renderSteamCalc()" onblur="fixTime(this);renderSteamCalc()" style="width:100px;text-align:center"></td>'+
       '<td><input type="text" inputmode="numeric" maxlength="5" placeholder="1600" id="mc_'+k+'_e" oninput="renderSteamCalc()" onblur="fixTime(this);renderSteamCalc()" style="width:100px;text-align:center"></td>'+
       '<td id="mc_'+k+'_h">0</td>'+
-      '<td><input type="number" step="any" min="0" placeholder="0" id="mc_'+k+'_q" oninput="renderSteamCalc()" style="width:110px"> <span style="font-size:12px;color:var(--muted)">'+m.unit+'</span></td>';
+      '<td><input type="number" step="any" min="0" placeholder="0" id="mc_'+k+'_q" oninput="renderSteamCalc()" style="width:110px"> <span style="font-size:12px;color:var(--muted)">'+m.unit+'</span></td>'+
+      '<td>'+(m.press==="HP"
+        ? '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;color:#b45309;font-weight:700">'+
+          '<input type="checkbox" id="mc_'+k+'_em" onchange="renderSteamCalc()" style="width:17px;height:17px"> ลดแรงดันจ่ายโรงอื่น</label>'
+        : '<span style="font-size:11.5px;color:var(--muted)">–</span>')+'</td>';
     t.appendChild(tr);
   });
 })();
@@ -982,20 +986,32 @@ function machHours(m){
 }
 function machQty(m){const v=parseFloat(document.getElementById("mc_"+mKey(m.id)+"_q").value);return isNaN(v)?0:v;}
 // คำนวณการปันส่วนเชื้อเพลิงให้แต่ละโรง
+function machEmerg(m){
+  if(m.press!=="HP")return false;
+  const el=document.getElementById("mc_"+mKey(m.id)+"_em");
+  return !!(el&&el.checked);
+}
 function allocate(){
   const mh={},mq={};let totH=0,fuelHP=0,fuelLP=0,lpgLP=0;
+  const emList=[];
   MACHINES.forEach(function(m){
     const hh=machHours(m),q=machQty(m);
     mh[m.id]=hh;mq[m.id]=q;totH+=hh;
-    if(m.press==="HP")fuelHP+=q;
+    const em=machEmerg(m);
+    if(em&&(hh>0||q>0))emList.push(m.id);
+    // โหมดฉุกเฉิน: เครื่อง HP ลดแรงดันมาจ่ายโรงอื่น -> น้ำมันเตาไปรวมกองเดียวกับเครื่อง LP
+    if(m.press==="HP"&&!em)fuelHP+=q;
     else if(m.fuel==="fuel")fuelLP+=q;
     else lpgLP+=q;
   });
+  const emergOn=emList.length>0;
   const ph={};let plantTot=0;
   PLANTS.forEach(function(p){const hh=steamHours(p[0]);ph[p[0]]=hh;plantTot+=hh;});
   // ACID ใช้ไอน้ำจากเครื่อง HP เท่านั้น ไม่รับจาก LP ในทุกกรณี
-  const hpRan=MACHINES.some(function(m){return m.press==="HP"&&mh[m.id]>0;});
-  const lpPlants=PLANTS.map(function(p){return p[0];}).filter(function(x){return x!==HP_PLANT;});
+  const hpRan=MACHINES.some(function(m){return m.press==="HP"&&!machEmerg(m)&&mh[m.id]>0;});
+  // ปกติ ACID ไม่เข้ากอง LP · ยกเว้นโหมดฉุกเฉินและไม่มีเครื่อง HP ปกติจ่ายให้อยู่แล้ว (กันนับซ้ำ)
+  const acidInPool=emergOn && fuelHP<=0;
+  const lpPlants=PLANTS.map(function(p){return p[0];}).filter(function(x){return acidInPool||x!==HP_PLANT;});
   const lpBase=lpPlants.reduce(function(s,x){return s+(ph[x]||0);},0);
   const alloc={};
   PLANTS.forEach(function(p){alloc[p[0]]={hours:ph[p[0]]||0,fuel:0,lpg:0,src:""};});
@@ -1006,12 +1022,14 @@ function allocate(){
     const fInt=intSplit(fuelLP,share), lInt=intSplit(lpgLP,share);
     lpPlants.forEach(function(x,i){
       alloc[x].fuel+=fInt[i]; alloc[x].lpg+=lInt[i];
-      if(!alloc[x].src)alloc[x].src="ปันส่วนจากเครื่อง LP";
+      if(!alloc[x].src)alloc[x].src=emergOn?("ปันส่วนจากเครื่อง LP + "+emList.join("/")+" (ฉุกเฉิน)"):"ปันส่วนจากเครื่อง LP";
     });
   }
   // ตรวจความสอดคล้อง
   const warn=[];
-  if((ph[HP_PLANT]||0)>0 && !hpRan) warn.push("⚠ "+HP_PLANT+" ใช้ไอน้ำ "+fmt(ph[HP_PLANT])+" ชม. แต่ไม่มีเครื่อง HP (No.3/No.4) เดิน — ตรวจสอบการกรอก");
+  if(emergOn) warn.push("🔶 โหมดฉุกเฉิน: เครื่อง "+emList.join(" และ ")+" ลดแรงดันจ่ายโรงอื่น — เชื้อเพลิงถูกนำไปปันส่วนรวมกับเครื่อง LP"+
+    (acidInPool?" (รวม "+HP_PLANT+" ด้วย ถ้ามีชั่วโมงใช้ไอน้ำ)":" · "+HP_PLANT+" ยังรับจากเครื่อง HP ปกติ"));
+  if((ph[HP_PLANT]||0)>0 && !hpRan && !acidInPool) warn.push("⚠ "+HP_PLANT+" ใช้ไอน้ำ "+fmt(ph[HP_PLANT])+" ชม. แต่ไม่มีเครื่อง HP (No.3/No.4) เดิน — ตรวจสอบการกรอก");
   if(hpRan && (ph[HP_PLANT]||0)<=0) warn.push("⚠ เครื่อง HP เดินอยู่ แต่ยังไม่ได้กรอกเวลาที่ "+HP_PLANT+" ใช้ไอน้ำ");
   var _dv=document.getElementById("f_steam_date");
   if(_dv&&_dv.value){
@@ -1019,7 +1037,7 @@ function allocate(){
     if(_dv.value!==_today) warn.push("ℹ กำลังบันทึกข้อมูลของวันที่ "+thDate(_dv.value)+" (ไม่ใช่วันนี้) — ถ้าไม่ตั้งใจ กรุณาแก้ช่องวันที่ด้านบน");
   }
   if(fuelLP+lpgLP>0 && lpBase<=0) warn.push("⚠ มีเชื้อเพลิงจากเครื่อง LP แต่ยังไม่ได้กรอกเวลาโรงที่ใช้ไอน้ำ (ยกเว้น "+HP_PLANT+") — เชื้อเพลิงจะยังไม่ถูกปันส่วน");
-  return {mh:mh,mq:mq,totH:totH,fuelHP:fuelHP,fuelLP:fuelLP,lpgLP:lpgLP,ph:ph,plantTot:plantTot,alloc:alloc,hpRan:hpRan,lpBase:lpBase,warn:warn};
+  return {mh:mh,mq:mq,totH:totH,fuelHP:fuelHP,fuelLP:fuelLP,lpgLP:lpgLP,ph:ph,plantTot:plantTot,alloc:alloc,hpRan:hpRan,lpBase:lpBase,warn:warn,emergOn:emergOn,emList:emList,acidInPool:acidInPool};
 }
 
 // ===== ส่วนผลิตไอน้ำ: เวลาแต่ละโรง -> ชั่วโมง, น้ำมันเตา ÷ รวมชั่วโมง = ลิตร/ชม. =====
@@ -1096,7 +1114,10 @@ function saveSteam(){
     var rec={id:uid(),date:date,month:month,machine:m.id,
       t_start:norm24(document.getElementById("mc_"+k+"_s").value),
       t_end:norm24(document.getElementById("mc_"+k+"_e").value),
-      hours:hh,fuel_type:(m.fuel==="fuel"?"น้ำมันเตา":"LPG"),fuel_qty:q,user:user};
+      hours:hh,
+      // ติดป้ายไว้ในชนิดเชื้อเพลิง เพื่อให้ย้อนดูได้ว่าวันนั้นเดินโหมดฉุกเฉิน (ไม่ต้องเพิ่มคอลัมน์ในชีต)
+      fuel_type:(m.fuel==="fuel"?"น้ำมันเตา":"LPG")+(machEmerg(m)?" (ฉุกเฉิน-จ่ายแรงดันต่ำ)":""),
+      fuel_qty:q,user:user};
     machine.push(rec);mcsave();pushRow("machine",rec);nMach++;
   });
   // 2) การปันส่วนรายโรง -> ชีต boiler
@@ -1114,7 +1135,8 @@ function saveSteam(){
     records.push(rr);save();pushRow("records",rr);
   }
   // ล้างฟอร์ม
-  MACHINES.forEach(function(m){var k=mKey(m.id);["_s","_e","_q"].forEach(function(x){document.getElementById("mc_"+k+x).value="";});});
+  MACHINES.forEach(function(m){var k=mKey(m.id);["_s","_e","_q"].forEach(function(x){document.getElementById("mc_"+k+x).value="";});
+    var em=document.getElementById("mc_"+k+"_em");if(em)em.checked=false;});
   PLANTS.forEach(function(p){document.getElementById("f_st_"+p[0]+"_start").value="";document.getElementById("f_st_"+p[0]+"_end").value="";});
   renderSteamCalc();
   toast("✅ บันทึกข้อมูลวันที่ "+thDate(date)+" แล้ว · เครื่อง "+nMach+" เครื่อง · น้ำมันเตา "+fmt(totFuel)+" ล. · LPG "+fmt(A.lpgLP)+" กก.");
