@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21a (รายการจ่ายไอน้ำแยกเครื่อง + มิเตอร์ก๊าซ LPG)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21b (นำเข้าสมุด Boiler แบบรายรายการ)</b></p>
 </header>
 
 <div class="wrap">
@@ -3002,6 +3002,61 @@ document.getElementById("csvFile").onchange=async(ev)=>{
     emsave();rerenderActive();
     toast("นำเข้าไฟฟ้ารายเดือน "+erows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
     await syncRows("elecmonth",erows,"มิเตอร์ไฟฟ้า");
+    ev.target.value="";return;
+  }
+
+  if(header.includes("machine") && header.includes("date") && header.includes("plant")){
+    // ---- สมุด Boiler แบบรายรายการ: 1 แถว = 1 ครั้งที่จ่ายไอน้ำให้โรงหนึ่ง ----
+    //      รองรับกรณีเครื่องเดียวเดินรอบเดียว แต่จ่ายหลายโรคคนละช่วงเวลา
+    const mMap={}, srows=[];
+    for(let i=1;i<lines.length;i++){
+      const cells=lines[i].split(",");
+      const o={};header.forEach((h2,j)=>o[h2]=(cells[j]||"").trim());
+      if(!o.date||!o.machine||!o.plant)continue;
+      const M=MACHINES.find(x=>x.id===o.machine);
+      const ftype=(M&&M.fuel==="lpg")?"LPG":"น้ำมันเตา";
+      const mon=o.month||o.date.slice(0,7);
+      const ms=norm24(o.m_start||o.t_start), me=norm24(o.m_end||o.t_end);
+      const key=o.date+"|"+o.machine+"|"+ms+"|"+me;
+      if(!mMap[key]){
+        const mp=o.m_prev===""||o.m_prev===undefined?"":parseFloat(o.m_prev);
+        const mc=o.m_curr===""||o.m_curr===undefined?"":parseFloat(o.m_curr);
+        let q=parseFloat(o.m_qty);
+        if(!isFinite(q)&&isFinite(mp)&&isFinite(mc))q=Math.round((mc-mp)*100)/100;
+        mMap[key]={id:uid(),date:o.date,month:mon,machine:o.machine,t_start:ms,t_end:me,
+          hours:parseFloat(o.m_hours)||0,fuel_type:ftype,fuel_qty:isFinite(q)?q:0,
+          m_prev:isFinite(mp)?mp:"",m_curr:isFinite(mc)?mc:"",user:o.user||"นำเข้า"};
+      }
+      srows.push({id:uid(),date:o.date,month:mon,machine:o.machine,plant:o.plant.toUpperCase(),
+        t_start:norm24(o.s_start||ms),t_end:norm24(o.s_end||me),
+        hours:parseFloat(o.s_hours)||0,fuel_type:ftype,fuel_qty:parseFloat(o.s_qty)||0,
+        user:o.user||"นำเข้า"});
+    }
+    const mrows=Object.keys(mMap).map(k=>mMap[k]);
+    const mids={};mrows.forEach(r=>mids[r.month+"|"+r.machine]=1);
+    const mdel=machine.filter(r=>mids[r.month+"|"+r.machine]);
+    machine=machine.filter(r=>!mids[r.month+"|"+r.machine]);
+    mrows.forEach(r=>machine.push(r));
+    const sdel=steamlog.filter(r=>mids[r.month+"|"+r.machine]);
+    steamlog=steamlog.filter(r=>!mids[r.month+"|"+r.machine]);
+    srows.forEach(r=>steamlog.push(r));
+    const agg={};
+    srows.forEach(function(r){
+      const k=r.date+"|"+r.plant;
+      if(!agg[k])agg[k]={id:uid(),month:r.month,date:r.date,item:r.plant,hours:0,liters:0,lpg:0,user:"นำเข้า"};
+      agg[k].hours+=r.hours;
+      if(r.fuel_type==="LPG")agg[k].lpg+=r.fuel_qty; else agg[k].liters+=r.fuel_qty;
+    });
+    const brows=Object.keys(agg).map(k=>agg[k]);
+    const bkeys={};brows.forEach(r=>bkeys[r.date+"|"+r.item]=1);
+    const bdel=boiler.filter(r=>r.date&&bkeys[r.date+"|"+r.item]);
+    boiler=boiler.filter(r=>!(r.date&&bkeys[r.date+"|"+r.item]));
+    brows.forEach(r=>boiler.push(r));
+    mcsave();slsave();bsave();rerenderActive();
+    toast("นำเข้า Boiler: เดินเครื่อง "+mrows.length+" ครั้ง · จ่ายไอน้ำ "+srows.length+" รายการ");
+    await syncRows("machine",mrows,"เครื่องกำเนิดไอน้ำ",mdel);
+    await syncRows("steamlog",srows,"รายการจ่ายไอน้ำ",sdel);
+    await syncRows("boiler",brows,"เชื้อเพลิงรายโรง",bdel);
     ev.target.value="";return;
   }
 
