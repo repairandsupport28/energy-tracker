@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21e (ล้างข้อมูลแบบเลือกได้ ไม่ลบของเจ้าหน้าที่)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21f (ปุ่มเริ่มข้อมูลไอน้ำใหม่ + แสดงจำนวนแถว)</b></p>
 </header>
 
 <div class="wrap">
@@ -120,6 +120,7 @@
       <span id="whoami" style="font-size:12.5px;color:var(--muted);font-weight:600"></span>
       <button class="btn btn-ghost btn-sm" id="btnClean" onclick="cleanDuplicates()">🧹 ล้างข้อมูลซ้ำ</button>
       <button class="btn btn-ghost btn-sm" id="btnResetB" onclick="resetBoiler()" style="border-color:#dc2626;color:#b91c1c">🧯 ล้างเชื้อเพลิงรายโรงเริ่มใหม่</button>
+      <button class="btn btn-ghost btn-sm" id="btnResetAll" onclick="resetSteamAll()" style="border-color:#7c3aed;color:#6d28d9">🔄 เริ่มข้อมูลไอน้ำใหม่ทั้งหมด</button>
       <button class="btn btn-ghost btn-sm" id="btnLogout" style="display:none" onclick="doLogout()">ออกจากระบบ</button>
     </div>
     <div id="cloudWarn" style="display:none;background:#fef2f2;border:2px solid #dc2626;color:#b91c1c;
@@ -554,6 +555,7 @@
     <div class="card view-only">
       <h2>ยอดรวมเชื้อเพลิงผลิตไอน้ำ (ปีงบ)</h2>
       <div class="src">แยกให้เห็นทั้ง <b>น้ำมันเตา</b> (เครื่อง No.2 · No.3 · No.4) และ <b>แก๊ส LPG</b> (เครื่อง No.1.1 – No.1.3) ในตารางเดียวกัน</div>
+      <div id="rowCount" style="font-size:12.5px;color:var(--muted);margin:-4px 0 8px"></div>
       <div class="table-scroll" style="margin-bottom:12px"><table id="fuelSum"></table></div>
       <div class="kpis" id="bKpis"></div>
       <div class="section-title">ยอดคงคลัง (แก้ไขได้)</div>
@@ -1675,6 +1677,9 @@ function renderBoiler(){
   const runL=machine.filter(r=>FUELM.indexOf(r.machine)>=0).reduce((s,r)=>s+(+r.hours||0),0);
   const runG=machine.filter(r=>GASM.indexOf(r.machine)>=0).reduce((s,r)=>s+(+r.hours||0),0);
   const totH=hL, avg=hL>0?totL/hL:0;
+  const rc=document.getElementById("rowCount");
+  if(rc)rc.innerHTML="จำนวนแถวในระบบ: เชื้อเพลิงรายโรง <b>"+boiler.length+"</b> · เครื่องกำเนิดไอน้ำ <b>"+machine.length+
+    "</b> · รายการจ่ายไอน้ำ <b>"+steamlog.length+"</b>";
   const fs=document.getElementById("fuelSum");
   if(fs){
     const row=(name,color,run,use,qty,unit,rate)=>
@@ -2175,6 +2180,33 @@ async function resetBoiler(){
     if(btn){btn.disabled=false;btn.textContent=lbl;}
     alert("ล้างในเครื่องแล้ว "+old.length+" แถว (ยังไม่ได้เชื่อมฐานข้อมูลกลาง)");
   }
+}
+
+/* ============ เริ่มข้อมูลไอน้ำใหม่ทั้งหมด (admin) ============
+   ล้าง 3 ตารางในเครื่องนี้: เชื้อเพลิงรายโรง · เครื่องกำเนิดไอน้ำ · รายการจ่ายไอน้ำ
+   ไม่ส่งคำสั่งลบทีละแถวขึ้นชีต (ช้าและหลุดง่าย) — ให้ลบแท็บบนชีตทิ้งแทน แล้วนำเข้าใหม่ */
+function resetSteamAll(){
+  if(!window._isAdmin){toast("เฉพาะผู้ดูแลระบบ");return;}
+  const nb=boiler.length, nm=machine.length, ns=steamlog.length;
+  const isImp=r=>String(r.user||"")==="นำเข้า";
+  const mine=boiler.filter(r=>!isImp(r)).length+machine.filter(r=>!isImp(r)).length+steamlog.filter(r=>!isImp(r)).length;
+  if(!confirm("เริ่มข้อมูลไอน้ำใหม่ทั้งหมด — ล้างในเครื่องนี้\n\n"+
+     "  • เชื้อเพลิงรายโรง      "+nb+" แถว\n"+
+     "  • เครื่องกำเนิดไอน้ำ    "+nm+" แถว\n"+
+     "  • รายการจ่ายไอน้ำ      "+ns+" แถว\n"+
+     (mine?"\n⚠ ในนี้มีที่ไม่ใช่ข้อมูลนำเข้า "+mine+" แถว (อาจเป็นของเจ้าหน้าที่)\n":"")+
+     "\nน้ำประปา · ไฟฟ้า · แบบฟอร์ม ปจด ไม่ถูกแตะต้อง\n\n"+
+     "ทำต่อ?"))return;
+  boiler=[];machine=[];steamlog=[];
+  bsave();mcsave();slsave();rerenderActive();
+  const wb=document.getElementById("cloudWarn");if(wb)wb.style.display="none";
+  alert("ล้างในเครื่องนี้เรียบร้อย\n\nขั้นตอนต่อไป (ทำตามลำดับ)\n\n"+
+    "1. เปิด Google Sheet ลบแท็บ boiler · machine · steamlog ทิ้ง\n"+
+    "2. กลับมาที่นี่ กด 📥 นำเข้า CSV ตามลำดับ\n"+
+    "     machine → boiler → gas\n"+
+    "3. ตรวจว่าได้ เชื้อเพลิงรายโรง 242 · เครื่อง 159 · รายการจ่าย 33 แถว\n"+
+    "     น้ำมันเตา 133,290 ลิตร · แก๊ส 8,886 กก.\n"+
+    "4. ถ้ามีกรอบแดงขึ้น ให้กด ⬆ อัปโหลดขึ้น Sheet หนึ่งครั้ง");
 }
 
 /* ============ ล้างข้อมูลซ้ำ (admin) ============ */
@@ -3353,7 +3385,7 @@ function applyPermissions(role){
     if(tag)tag.classList.forEach(c=>{if(c.indexOf("u-")===0)unit=c.slice(2);});
     box.style.display=(unit&&r.boxes.indexOf(unit)>=0)?"":"none";
   });
-  ["btnUpload","btnWipe","btnClean","btnResetB"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=r.admin?"":"none";});
+  ["btnUpload","btnWipe","btnClean","btnResetB","btnResetAll"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=r.admin?"":"none";});
   const imp=document.getElementById("csvFile");if(imp&&imp.parentElement)imp.parentElement.style.display=r.admin?"":"none";
   const lo=document.getElementById("btnLogout");if(lo)lo.style.display="";
   const who=document.getElementById("whoami");
