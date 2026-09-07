@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21b (นำเข้าสมุด Boiler แบบรายรายการ)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21c (แยกหน่วยลิตร/กก. + สรุปแก๊สเข้าหน้ารายงาน)</b></p>
 </header>
 
 <div class="wrap">
@@ -597,13 +597,26 @@
         <div style="display:none"><select id="mcMode"><option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select>
           <input type="date" id="mcFrom"><input type="date" id="mcTo"></div>
         <div><label>ค่าที่แสดง</label><select id="mcVal" onchange="renderMachine()">
-          <option value="hours">ชั่วโมงเดินเครื่อง</option><option value="fuel_qty">เชื้อเพลิงที่ใช้</option></select></div>
+          <option value="hours">ชั่วโมงเดินเครื่อง</option>
+          <option value="fuel_l">น้ำมันเตาที่ใช้ (ลิตร)</option>
+          <option value="fuel_kg">แก๊ส LPG ที่ใช้ (กก.)</option></select></div>
       </div>
       <div class="kpis" id="mcKpis"></div>
       <div class="table-scroll"><table id="mcTable"></table></div>
       <div style="margin-top:14px"><canvas id="chartMc"></canvas></div>
       <div class="section-title">ชั่วโมงสะสมทั้งหมด (ตั้งแต่เริ่มบันทึก)</div>
       <div class="table-scroll"><table id="mcTotal"></table></div>
+    </div>
+
+    <div class="card view-only" style="border-left:5px solid #0891b2">
+      <span class="blk">สรุปการใช้แก๊ส LPG</span>
+      <div class="src">เฉพาะเครื่องแก๊ส No.1.1 · No.1.2 · No.1.3 · หน่วย: กก. · ช่วงเวลาตั้งที่แถบด้านบน</div>
+      <div class="kpis" id="gasKpis"></div>
+      <div class="section-title">แยกตามโรงที่รับไอน้ำ</div>
+      <div class="table-scroll"><table id="gasPlant"></table></div>
+      <div class="section-title">แยกตามเครื่อง</div>
+      <div class="table-scroll"><table id="gasMach"></table></div>
+      <div style="margin-top:14px"><canvas id="chartGas"></canvas></div>
     </div>
 
     <!-- หน้าตาเหมือนแบบฟอร์มกระดาษ "บันทึกการใช้งาน boiler" -->
@@ -822,7 +835,7 @@ async function pingCloud(){
 }
 function pushStock(st){if(CLOUD())apiPost({sheet:"config",op:"stock",row:st}).catch(()=>{});}
 function rerenderActive(){const a=document.querySelector(".tab.active");if(!a)return;const t=a.dataset.tab;
-  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();rgInit();renderBoilerFlex();renderMachine();renderBookForm();renderSteamCalc();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();else if(t==="mine")renderMine();else if(t==="delreq")renderDelreq();}
+  if(t==="summary")renderSummary();else if(t==="records")renderRecords();else if(t==="boiler"){renderBoiler();rgInit();renderBoilerFlex();renderMachine();renderBookForm();renderGas();renderSteamCalc();}else if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}else if(t==="report")loadReportForm();else if(t==="water"){renderWater();renderChem();}else if(t==="exec")renderExec();else if(t==="status")renderStatus();else if(t==="mine")renderMine();else if(t==="delreq")renderDelreq();}
 async function refreshFromCloud(force){
   try{
     const d=await apiGet();
@@ -890,7 +903,7 @@ function openTab(t){
   document.querySelectorAll(".view-only").forEach(el=>el.style.display=(curMode==="view"?"":"none"));
   if(t==="summary")renderSummary();
   if(t==="records")renderRecords();
-  if(t==="boiler"){renderBoiler();rgInit();renderBoilerFlex();renderMachine();renderBookForm();renderSteamCalc();}
+  if(t==="boiler"){renderBoiler();rgInit();renderBoilerFlex();renderMachine();renderBookForm();renderGas();renderSteamCalc();}
   if(t==="elecmon"){renderElecMonth();renderPEA();renderElec();}
   if(t==="report")loadReportForm();
   if(t==="water"){renderWater();renderChem();}
@@ -1334,7 +1347,7 @@ const MATRIX=[
   ["use_office","ใช้ไฟทั้งกอง (PEA)","kWh","report","rate_sum"],        // กรง.ฯ = ยอดรวม PEA (A+B+C)
   ["use_pump","โรงสูบน้ำ","kWh","report","g2_kwh"],        // โรงสูบน้ำ = บิลโรงสูบน้ำเจ้าพระยา
   ["fuel","Fuel oil","L","boiler"],
-  ["lpg","LPG","kg","records"],
+  ["lpg","LPG (แก๊ส)","kg","boiler_lpg"],
   ["alum","ALUM","kg","records"],
   ["caoh","CaOH2","kg","records"],
   ["sugar","Sugar","kg","records"]
@@ -1373,13 +1386,18 @@ function matrixAgg(){
   const addRec=r=>{const m=(r.date||"").slice(0,7);if(!m)return;if(!rec[m])rec[m]={};MATRIX.forEach(c=>{rec[m][c[0]]=(rec[m][c[0]]||0)+(+r[c[0]]||0);});};
   records.forEach(addRec);
   water.forEach(r=>{const m=(r.date||"").slice(0,7);if(!m)return;if(!rec[m])rec[m]={};["alum","caoh","sugar"].forEach(k=>{rec[m][k]=(rec[m][k]||0)+(+r[k]||0);});});
-  const bo={};boiler.forEach(r=>{if(r.month)bo[r.month]=(bo[r.month]||0)+(+r.liters||0);});
+  const bo={},bg={};
+  boiler.forEach(r=>{if(!r.month)return;
+    bo[r.month]=(bo[r.month]||0)+(+r.liters||0);
+    bg[r.month]=(bg[r.month]||0)+(+r.lpg||0);});
   const rp={};report.forEach(r=>{if(r.month)rp[r.month]=r;});
   function repVal(m,c){var row=rp[m];if(!row)return null;
     if(c[4]==="rate_sum"){var s=(+row.rate_a||0)+(+row.rate_b||0)+(+row.rate_c||0);return s>0?s:null;}
     var v=+row[c[4]]||0;return v>0?v:null;}
   return {val:(m,c)=>{
     if(c[3]==="boiler")return bo[m]||0;
+    // LPG: รวมของใหม่จากบันทึกไอน้ำ (boiler) กับของเก่าที่เคยกรอกใน records
+    if(c[3]==="boiler_lpg")return (bg[m]||0)+((rec[m]&&rec[m].lpg)||0);
     if(c[3]==="report"){var rv=repVal(m,c);return rv!==null?rv:((rec[m]&&rec[m][c[0]])||0);}
     return (rec[m]&&rec[m][c[0]])||0;
   }};
@@ -2193,6 +2211,60 @@ function renderPEA(){
   ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"kWh"}}}}});
 }
 
+/* ============ สรุปการใช้แก๊ส LPG (เฉพาะเครื่องแก๊ส) ============ */
+let chartGasObj=null;
+function renderGas(){
+  if(!document.getElementById("gasKpis"))return;
+  const f=(document.getElementById("mcFrom")||{}).value||"";
+  const t=(document.getElementById("mcTo")||{}).value||"";
+  const mode=(document.getElementById("mcMode")||{}).value||"month";
+  const GM=MACHINES.filter(m=>m.fuel==="lpg").map(m=>m.id);
+  const inR=d=>(!f||(d&&d>=f))&&(!t||(d&&d<=t));
+  const mrows=machine.filter(r=>GM.indexOf(r.machine)>=0&&inR(r.date));
+  const srows=steamlog.filter(r=>GM.indexOf(r.machine)>=0&&inR(r.date));
+  const totKg=mrows.reduce((s,r)=>s+(+r.fuel_qty||0),0);
+  const totH=mrows.reduce((s,r)=>s+(+r.hours||0),0);
+  const days=Object.keys(mrows.reduce((o,r)=>{o[r.date]=1;return o;},{})).length;
+  document.getElementById("gasKpis").innerHTML=
+    '<div class="kpi cyan"><div class="l">แก๊สที่ใช้รวม</div><div class="v">'+fmt(totKg)+'</div><div class="u">กก.</div></div>'+
+    '<div class="kpi"><div class="l">ชั่วโมงเดินเครื่อง</div><div class="v">'+fmt(totH)+'</div><div class="u">ชม.</div></div>'+
+    '<div class="kpi orange"><div class="l">อัตราการใช้</div><div class="v">'+(totH>0?fmt(totKg/totH):"0")+'</div><div class="u">กก./ชม.</div></div>'+
+    '<div class="kpi green"><div class="l">วันที่เดินเครื่อง</div><div class="v">'+days+'</div><div class="u">วัน</div></div>';
+  // แยกตามโรง
+  const byP={};srows.forEach(r=>{byP[r.plant]=(byP[r.plant]||0)+(+r.fuel_qty||0);});
+  const pk=Object.keys(byP).sort((a,b)=>byP[b]-byP[a]);
+  const sumP=pk.reduce((s,k)=>s+byP[k],0);
+  document.getElementById("gasPlant").innerHTML=
+    '<tr><th>โรงงาน</th><th>แก๊สที่ได้รับ (กก.)</th><th>สัดส่วน</th></tr>'+
+    (pk.map(k=>'<tr><td style="text-align:left"><b>'+k+'</b></td><td>'+fmt(byP[k])+'</td><td>'+(sumP>0?fmt(byP[k]/sumP*100)+"%":"–")+'</td></tr>').join("")
+      ||'<tr><td colspan="3" class="empty">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>')+
+    (pk.length?'<tr style="font-weight:800;background:#f1f5f9"><td>รวม</td><td>'+fmt(sumP)+'</td><td>100%</td></tr>':"");
+  // แยกตามเครื่อง
+  const byM={},hM={};
+  mrows.forEach(r=>{byM[r.machine]=(byM[r.machine]||0)+(+r.fuel_qty||0);hM[r.machine]=(hM[r.machine]||0)+(+r.hours||0);});
+  document.getElementById("gasMach").innerHTML=
+    '<tr><th>เครื่อง</th><th>ชั่วโมง</th><th>แก๊ส (กก.)</th><th>อัตรา (กก./ชม.)</th></tr>'+
+    GM.map(function(id){
+      const kg=byM[id]||0,hh=hM[id]||0;
+      return '<tr><td style="text-align:left"><b>'+id+'</b></td><td>'+fmt(hh)+'</td><td>'+(kg?fmt(kg):"–")+'</td><td>'+(hh>0?fmt(kg/hh):"–")+'</td></tr>';
+    }).join("")+
+    '<tr style="font-weight:800;background:#f1f5f9"><td>รวม</td><td>'+fmt(totH)+'</td><td>'+fmt(totKg)+'</td><td>'+(totH>0?fmt(totKg/totH):"–")+'</td></tr>';
+  // กราฟตามช่วงเวลา
+  const cell={},keys={};
+  mrows.forEach(function(r){
+    const ym=validYM(r.month||r.date)||"";
+    const k=mode==="day"?(r.date||""):(mode==="month"?ym:(ym?String(fyStartOf(ym)):""));
+    if(!k)return;keys[k]=1;cell[r.machine+"|"+k]=(cell[r.machine+"|"+k]||0)+(+r.fuel_qty||0);
+  });
+  const ks=Object.keys(keys).sort();
+  const COL=["#0891b2","#0f766e","#16a34a"];
+  if(chartGasObj)chartGasObj.destroy();
+  const cv=document.getElementById("chartGas");
+  if(cv&&ks.length)chartGasObj=new Chart(cv,{type:"bar",
+    data:{labels:ks.map(k=>bfLabel(k,mode)),datasets:GM.map((id,i)=>({label:id,data:ks.map(k=>cell[id+"|"+k]||0),backgroundColor:COL[i%COL.length]}))},
+    options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"กก."}}}}});
+}
+
 /* ============ ตารางหน้าตาเหมือนสมุดบันทึก Boiler ============
    1 แถว = 1 เครื่องต่อวัน · คอลัมน์ขวาคือ กก./ลิตร ที่จ่ายให้แต่ละโรง (จาก steamlog) */
 const BKPLANTS=["NC","NG","P","IMI","B","ACID"];
@@ -2334,7 +2406,7 @@ function applyRange(){
     df:document.getElementById("sDayFrom").value,dt:document.getElementById("sDayTo").value,
     mf:document.getElementById("sMonFrom").value,mt:document.getElementById("sMonTo").value,
     fy:document.getElementById("sFy").value}));}catch(e){}
-  renderMachine();renderBoilerFlex();renderBookForm();
+  renderMachine();renderBoilerFlex();renderBookForm();renderGas();
 }
 function rgInit(){
   rgChipsInit();
@@ -2357,8 +2429,13 @@ function renderMachine(){
   var mode=document.getElementById("mcMode");if(!mode)return;
   mode=mode.value;
   var field=document.getElementById("mcVal").value;
+  // แยกชนิดเชื้อเพลิง: fuel_l = น้ำมันเตา (ลิตร) · fuel_kg = LPG (กก.) — ห้ามเอามาบวกกัน
+  var isFuelQty=(field==="fuel_l"||field==="fuel_kg");
+  var wantFuel=field==="fuel_l"?"fuel":(field==="fuel_kg"?"lpg":null);
+  var MF={};MACHINES.forEach(function(m){MF[m.id]=m.fuel;});
+  var ids0=MACHINES.filter(function(m){return !wantFuel||m.fuel===wantFuel;}).map(function(m){return m.id;});
   var from=document.getElementById("mcFrom").value,to=document.getElementById("mcTo").value;
-  var ids=MACHINES.map(function(m){return m.id;});
+  var ids=ids0;
   var cell={},keys={};
   machine.forEach(function(r){
     var d=r.date||"";
@@ -2366,10 +2443,11 @@ function renderMachine(){
     if(to&&d&&d>to)return;
     var k=mode==="day"?d:(mode==="month"?(validYM(r.month||d)||""):(validYM(r.month||d)?String(fyStartOf(validYM(r.month||d))):""));
     if(!k)return;keys[k]=1;
-    cell[r.machine+"|"+k]=(cell[r.machine+"|"+k]||0)+(+r[field]||0);
+    if(wantFuel&&MF[r.machine]!==wantFuel)return;
+    cell[r.machine+"|"+k]=(cell[r.machine+"|"+k]||0)+(+r[isFuelQty?"fuel_qty":field]||0);
   });
   var ks=Object.keys(keys).sort();
-  var unit=field==="hours"?"ชม.":"ลิตร/กก.";
+  var unit=field==="hours"?"ชม.":(field==="fuel_l"?"ลิตร":"กก.");
   var grand=0;ks.forEach(function(k){ids.forEach(function(i){grand+=cell[i+"|"+k]||0;});});
   // KPI: เครื่องที่เดินมากสุด
   var byM={};ids.forEach(function(i){byM[i]=ks.reduce(function(s,k){return s+(cell[i+"|"+k]||0);},0);});
@@ -2379,7 +2457,7 @@ function renderMachine(){
     '<div class="kpi"><div class="l">เครื่องที่ใช้งานมากสุด</div><div class="v" style="font-size:20px">'+(byM[top]>0?top:"—")+'</div><div class="u">'+(byM[top]>0?fmt(byM[top])+" "+unit:"ยังไม่มีข้อมูล")+'</div></div>'+
     '<div class="kpi cyan"><div class="l">ช่วงเวลา</div><div class="v">'+ks.length+'</div><div class="u">'+(mode==="day"?"วัน":mode==="month"?"เดือน":"ปีงบ")+'</div></div>';
   if(!ks.length){
-    document.getElementById("mcTable").innerHTML='<tr><td class="empty">ยังไม่มีข้อมูลเครื่องกำเนิดไอน้ำ (เริ่มบันทึกได้ที่ฟอร์มไอน้ำรายวัน)</td></tr>';
+    document.getElementById("mcTable").innerHTML='<tr><td class="empty">ไม่มีข้อมูล'+(wantFuel?("เครื่อง"+(wantFuel==="lpg"?"แก๊ส LPG":"น้ำมันเตา")):"เครื่องกำเนิดไอน้ำ")+'ในช่วงที่เลือก</td></tr>';
     document.getElementById("mcTotal").innerHTML="";if(chartMcObj)chartMcObj.destroy();chartMcObj=null;return;
   }
   var head='<tr><th>'+(mode==="day"?"วันที่":mode==="month"?"เดือน":"ปีงบ")+'</th>'+ids.map(function(i){return '<th>'+i+'</th>';}).join("")+'<th>รวม</th></tr>';
@@ -2397,13 +2475,14 @@ function renderMachine(){
   // ชั่วโมงสะสมทั้งหมด (ไม่สนช่วงเวลา) เพื่อวางแผนซ่อม
   var acc={},accF={};
   machine.forEach(function(r){acc[r.machine]=(acc[r.machine]||0)+(+r.hours||0);accF[r.machine]=(accF[r.machine]||0)+(+r.fuel_qty||0);});
-  var h2='<tr><th>เครื่อง</th><th>แรงดัน</th><th>เชื้อเพลิง</th><th>ชั่วโมงสะสม</th><th>เชื้อเพลิงสะสม</th><th>หมายเหตุ</th></tr>';
+  var h2='<tr><th>เครื่อง</th><th>แรงดัน</th><th>ชนิดเชื้อเพลิง</th><th>ชั่วโมงสะสม</th><th>น้ำมันเตาสะสม (ล.)</th><th>แก๊ส LPG สะสม (กก.)</th><th>หมายเหตุ</th></tr>';
   h2+=MACHINES.map(function(m){
     return '<tr><td style="text-align:left"><b>'+m.id+'</b></td>'+
       '<td><span style="font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:20px;color:#fff;background:'+(m.press==="HP"?"#dc2626":"#0891b2")+'">'+m.press+'</span></td>'+
       '<td>'+(m.fuel==="fuel"?"น้ำมันเตา":"LPG")+'</td>'+
       '<td style="font-weight:700">'+fmt(acc[m.id]||0)+' ชม.</td>'+
-      '<td>'+fmt(accF[m.id]||0)+' '+m.unit+'</td>'+
+      '<td>'+(m.fuel==="fuel"?fmt(accF[m.id]||0):'<span style="color:var(--muted)">–</span>')+'</td>'+
+      '<td>'+(m.fuel==="lpg"?fmt(accF[m.id]||0):'<span style="color:var(--muted)">–</span>')+'</td>'+
       '<td style="text-align:left;font-size:12.5px;color:var(--muted)">'+(m.press==="HP"?"จ่ายไอน้ำให้ "+HP_PLANT:"จ่ายไอน้ำโรงทั่วไป")+(m.id==="No.3"?" · ซ่อมปี ๗๐":"")+'</td></tr>';
   }).join("");
   document.getElementById("mcTotal").innerHTML=h2;
