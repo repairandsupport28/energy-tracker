@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21c (แยกหน่วยลิตร/กก. + สรุปแก๊สเข้าหน้ารายงาน)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21e (ล้างข้อมูลแบบเลือกได้ ไม่ลบของเจ้าหน้าที่)</b></p>
 </header>
 
 <div class="wrap">
@@ -119,7 +119,7 @@
       <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">📥 นำเข้า CSV<input type="file" id="csvFile" accept=".csv" style="display:none"></label>
       <span id="whoami" style="font-size:12.5px;color:var(--muted);font-weight:600"></span>
       <button class="btn btn-ghost btn-sm" id="btnClean" onclick="cleanDuplicates()">🧹 ล้างข้อมูลซ้ำ</button>
-      <button class="btn btn-ghost btn-sm" id="btnResetB" onclick="resetBoiler()" style="border-color:#dc2626;color:#b91c1c">🧯 ล้างน้ำมันเตาเริ่มใหม่</button>
+      <button class="btn btn-ghost btn-sm" id="btnResetB" onclick="resetBoiler()" style="border-color:#dc2626;color:#b91c1c">🧯 ล้างเชื้อเพลิงรายโรงเริ่มใหม่</button>
       <button class="btn btn-ghost btn-sm" id="btnLogout" style="display:none" onclick="doLogout()">ออกจากระบบ</button>
     </div>
     <div id="cloudWarn" style="display:none;background:#fef2f2;border:2px solid #dc2626;color:#b91c1c;
@@ -552,7 +552,9 @@
     </div>
 
     <div class="card view-only">
-      <h2>ยอดรวมน้ำมันเตา (ปีงบ)</h2>
+      <h2>ยอดรวมเชื้อเพลิงผลิตไอน้ำ (ปีงบ)</h2>
+      <div class="src">แยกให้เห็นทั้ง <b>น้ำมันเตา</b> (เครื่อง No.2 · No.3 · No.4) และ <b>แก๊ส LPG</b> (เครื่อง No.1.1 – No.1.3) ในตารางเดียวกัน</div>
+      <div class="table-scroll" style="margin-bottom:12px"><table id="fuelSum"></table></div>
       <div class="kpis" id="bKpis"></div>
       <div class="section-title">ยอดคงคลัง (แก้ไขได้)</div>
       <div class="grid">
@@ -1662,14 +1664,36 @@ function bDel(id){if(confirm("ลบรายการนี้?")){boiler=boile
 let chartB;
 function renderBoiler(){
   loadStockInputs();
-  const totH=boiler.reduce((s,r)=>s+r.hours,0), totL=boiler.reduce((s,r)=>s+r.liters,0);
-  const avg=totH>0?totL/totH:0;
+  const FUELM=MACHINES.filter(m=>m.fuel==="fuel").map(m=>m.id);
+  const GASM =MACHINES.filter(m=>m.fuel==="lpg").map(m=>m.id);
+  // ชั่วโมง "ใช้ไอน้ำรวมทุกโรง" แยกตามชนิดเชื้อเพลิงที่โรงนั้นได้รับ (ฐานเดียวกับรายงานเดิม)
+  const hL=boiler.reduce((s,r)=>s+((+r.liters||0)>0?(+r.hours||0):0),0);
+  const hG=boiler.reduce((s,r)=>s+((+r.lpg||0)>0?(+r.hours||0):0),0);
+  const totL=boiler.reduce((s,r)=>s+(+r.liters||0),0);
+  const totG=boiler.reduce((s,r)=>s+(+r.lpg||0),0)+records.reduce((s,r)=>s+(+r.lpg||0),0);
+  // ชั่วโมงเดินเครื่องจริง (จากตาราง machine)
+  const runL=machine.filter(r=>FUELM.indexOf(r.machine)>=0).reduce((s,r)=>s+(+r.hours||0),0);
+  const runG=machine.filter(r=>GASM.indexOf(r.machine)>=0).reduce((s,r)=>s+(+r.hours||0),0);
+  const totH=hL, avg=hL>0?totL/hL:0;
+  const fs=document.getElementById("fuelSum");
+  if(fs){
+    const row=(name,color,run,use,qty,unit,rate)=>
+      '<tr><td style="text-align:left"><b style="color:'+color+'">'+name+'</b></td>'+
+      '<td>'+fmt(run)+'</td><td>'+fmt(use)+'</td>'+
+      '<td style="font-weight:800;color:'+color+'">'+fmt(qty)+' <span style="font-size:11.5px;font-weight:600;color:var(--muted)">'+unit+'</span></td>'+
+      '<td>'+(rate>0?fmt(rate)+' <span style="font-size:11.5px;color:var(--muted)">'+unit+'/ชม.</span>':"–")+'</td></tr>';
+    fs.innerHTML=
+      '<tr><th>แหล่งเชื้อเพลิง</th><th>ชม.เดินเครื่อง</th><th>ชม.ใช้ไอน้ำรวมทุกโรง</th><th>ปริมาณที่ใช้</th><th>อัตราการใช้</th></tr>'+
+      row("น้ำมันเตา (No.2 · No.3 · No.4)","#ea580c",runL,hL,totL,"ลิตร",hL>0?totL/hL:0)+
+      row("แก๊ส LPG (No.1.1 – No.1.3)","#0891b2",runG,hG,totG,"กก.",hG>0?totG/hG:0)+
+      '<tr style="font-weight:800;background:#f1f5f9"><td>รวมทุกเครื่อง</td><td>'+fmt(runL+runG)+'</td><td>'+fmt(hL+hG)+
+      '</td><td colspan="2" style="font-size:12.5px;color:var(--muted);text-align:left">คนละหน่วย รวมเป็นตัวเลขเดียวไม่ได้ — ดูแยกบรรทัดด้านบน</td></tr>';
+  }
   document.getElementById("bKpis").innerHTML=`
-    <div class="kpi orange"><div class="l">รวมชั่วโมง</div><div class="v">${fmt(totH)}</div><div class="u">ชม.</div></div>
-    <div class="kpi orange"><div class="l">รวมน้ำมันเตา</div><div class="v">${fmt(totL)}</div><div class="u">ลิตร</div></div>
-    <div class="kpi"><div class="l">เฉลี่ยการใช้</div><div class="v">${fmt(avg)}</div><div class="u">ลิตร/ชม.</div></div>
-    <div class="kpi green"><div class="l">คงเหลือ/ใช้ได้</div><div class="v">${fmt(bstock.remain)}</div><div class="u">ลิตร</div></div>
-    <div class="kpi cyan"><div class="l">LPG รวม</div><div class="v">${fmt(boiler.reduce((s,r)=>s+(+r.lpg||0),0)+records.reduce((s,r)=>s+(+r.lpg||0),0))}</div><div class="u">kg</div></div>`;
+    <div class="kpi orange"><div class="l">น้ำมันเตา</div><div class="v">${fmt(totL)}</div><div class="u">ลิตร · ${fmt(avg)} ล./ชม.</div></div>
+    <div class="kpi cyan"><div class="l">แก๊ส LPG</div><div class="v">${fmt(totG)}</div><div class="u">กก. · ${hG>0?fmt(totG/hG):"0"} กก./ชม.</div></div>
+    <div class="kpi"><div class="l">ชั่วโมงเดินเครื่องรวม</div><div class="v">${fmt(runL+runG)}</div><div class="u">ชม. (น้ำมัน ${fmt(runL)} · แก๊ส ${fmt(runG)})</div></div>
+    <div class="kpi green"><div class="l">น้ำมันเตาคงเหลือ</div><div class="v">${fmt(bstock.remain)}</div><div class="u">ลิตร</div></div>`;
 
   // pivot item x month (liters), only months that have data
   const usedMonths=BMONTHS.filter(m=>boiler.some(r=>r.month===m));
@@ -2107,12 +2131,31 @@ document.getElementById("btnWaterCsv").onclick=function(){
 async function resetBoiler(){
   if(!window._isAdmin){toast("เฉพาะผู้ดูแลระบบ");return;}
   const n=boiler.length;
-  if(!n){toast("ไม่มีข้อมูลน้ำมันเตาให้ล้าง");return;}
-  if(!confirm("ล้างข้อมูลน้ำมันเตารายโรงทั้งหมด "+n+" แถว\n(ทั้งในเครื่องนี้และบนฐานข้อมูลกลาง)\n\n"+
-              "ข้อมูลเครื่องกำเนิดไอน้ำ · น้ำประปา · ไฟฟ้า จะไม่ถูกแตะต้อง\n\n"+
-              "หลังล้างเสร็จ ให้กด 📥 นำเข้า CSV ไฟล์น้ำมันเตารายวันอีกครั้ง\n\nยืนยันล้าง?"))return;
-  const old=boiler.slice();
-  boiler=[];bsave();rerenderActive();
+  if(!n){toast("ไม่มีข้อมูลเชื้อเพลิงรายโรงให้ล้าง");return;}
+  // แยกให้ชัดว่าแถวไหนมาจากการนำเข้าไฟล์ แถวไหนเจ้าหน้าที่กรอกเอง
+  const isImp=r=>String(r.user||"")==="นำเข้า";
+  const imp=boiler.filter(isImp), mine=boiler.filter(r=>!isImp(r));
+  let old;
+  if(mine.length){
+    const ok=confirm("พบข้อมูลเชื้อเพลิงรายโรง "+n+" แถว แยกเป็น\n"+
+      "  • มาจากการนำเข้าไฟล์ CSV : "+imp.length+" แถว\n"+
+      "  • เจ้าหน้าที่บันทึกเอง    : "+mine.length+" แถว\n\n"+
+      "กด ตกลง = ลบเฉพาะแถวที่นำเข้า (แนะนำ — ของเจ้าหน้าที่ยังอยู่ครบ)\n"+
+      "กด ยกเลิก = เลือกลบทั้งหมดในขั้นถัดไป");
+    if(ok){ old=imp; }
+    else{
+      if(!confirm("⚠ ลบทั้งหมด "+n+" แถว รวมของเจ้าหน้าที่ "+mine.length+" แถวด้วย?\n\n"+
+                  "ข้อมูลที่เจ้าหน้าที่กรอกเองจะหายถาวร กู้คืนไม่ได้\n\nยืนยันลบทั้งหมด?"))return;
+      old=boiler.slice();
+    }
+  }else{
+    if(!confirm("ล้างข้อมูลเชื้อเพลิงรายโรงทั้งหมด "+n+" แถว\n(ทั้งในเครื่องนี้และบนฐานข้อมูลกลาง)\n\n"+
+                "ทั้งหมดมาจากการนำเข้าไฟล์ ไม่มีของเจ้าหน้าที่ปนอยู่\n"+
+                "ข้อมูลเครื่องกำเนิดไอน้ำ · รายการจ่ายไอน้ำ · น้ำประปา · ไฟฟ้า จะไม่ถูกแตะต้อง\n\nยืนยันล้าง?"))return;
+    old=boiler.slice();
+  }
+  const del={};old.forEach(r=>del[r.id]=1);
+  boiler=boiler.filter(r=>!del[r.id]);bsave();rerenderActive();
   const btn=document.getElementById("btnResetB");const lbl=btn?btn.textContent:"";
   if(btn)btn.disabled=true;
   if(CLOUD()){
@@ -2124,9 +2167,10 @@ async function resetBoiler(){
       if(d%20===0)toast("กำลังล้างบนชีต "+d+"/"+old.length);
     }
     if(btn){btn.disabled=false;btn.textContent=lbl;}
-    alert("ล้างน้ำมันเตาเรียบร้อย\n\nลบในเครื่อง "+old.length+" แถว\nลบบนชีตสำเร็จ "+(old.length-fail)+" แถว"+
+    alert("ล้างเรียบร้อย\n\nลบในเครื่อง "+old.length+" แถว\nลบบนชีตสำเร็จ "+(old.length-fail)+" แถว"+
           (fail?"\nลบไม่สำเร็จ "+fail+" แถว (กดล้างซ้ำอีกครั้งได้)":"")+
-          "\n\nขั้นต่อไป: กด 📥 นำเข้า CSV แล้วเลือกไฟล์น้ำมันเตารายวัน");
+          "\nเหลือในระบบ "+boiler.length+" แถว"+
+          "\n\nขั้นต่อไป: กด 📥 นำเข้า CSV ตามลำดับ machine → boiler → gas");
   }else{
     if(btn){btn.disabled=false;btn.textContent=lbl;}
     alert("ล้างในเครื่องแล้ว "+old.length+" แถว (ยังไม่ได้เชื่อมฐานข้อมูลกลาง)");
@@ -2857,7 +2901,7 @@ function renderFYCompare(){
 const ROLESCOPE={
   water:{keys:["produced","alum"],matrix:["alum","caoh","sugar"],charts:["chartExecWater"],unit:"ส่วนผลิตน้ำประปา"},
   elec:{keys:["elec_use","elec_gen","baht","save"],matrix:["solar_roof","solar_farm","use_office","use_pump"],charts:["chartExecElec"],unit:"ส่วนไฟฟ้า"},
-  steam:{keys:["fuel"],matrix:["fuel","lpg"],charts:["chartExecFuel"],unit:"ส่วนผลิตไอน้ำ"}
+  steam:{keys:["fuel","lpg"],matrix:["fuel","lpg"],charts:["chartExecFuel"],unit:"ส่วนผลิตไอน้ำ"}
 };
 function myScope(){return (currentUser&&ROLESCOPE[currentUser.role])||null;}
 function inScope(key){const s=myScope();return !s||s.keys.indexOf(key)>=0;}
@@ -2890,6 +2934,7 @@ function execData(m){
     elec_use:get("use_office")+get("use_pump"),
     elec_gen:get("solar_roof")+get("solar_farm"),
     fuel:get("fuel"),
+    lpg:get("lpg"),
     produced:w.reduce((s,r)=>s+(+r.produced||0),0),
     alum:get("alum")+w.reduce((s,r)=>s+(+r.alum||0),0),
     baht:(function(){const r=report.find(x=>x.month===m)||{};return (+r.g1_baht||0)+(+r.g2_baht||0);})(),
@@ -2929,6 +2974,7 @@ function renderExec(){
     card("elec_use","ใช้ไฟฟ้ารวม",A.elec_use,"kWh",B.elec_use)+
     card("elec_gen","ผลิตไฟ (โซลาร์)",A.elec_gen,"kWh",B.elec_gen)+
     card("fuel","น้ำมันเตา",A.fuel,"ลิตร",B.fuel)+
+    card("lpg","แก๊ส LPG",A.lpg,"กก.",B.lpg)+
     card("produced","ผลิตน้ำประปา",A.produced,"ลบ.ม.",B.produced)+
     card("alum","สารส้ม",A.alum,"กก.",B.alum)+
     card("baht","ค่าไฟฟ้า (บิล)",A.baht,"บาท",B.baht)+
@@ -3127,9 +3173,11 @@ document.getElementById("csvFile").onchange=async(ev)=>{
       if(r.fuel_type==="LPG")agg[k].lpg+=r.fuel_qty; else agg[k].liters+=r.fuel_qty;
     });
     const brows=Object.keys(agg).map(k=>agg[k]);
+    // ลบเฉพาะแถวชนิดเชื้อเพลิงเดียวกัน — วันเดียวกันโรงเดียวกันอาจได้ทั้งน้ำมันเตาและแก๊ส
     const bkeys={};brows.forEach(r=>bkeys[r.date+"|"+r.item]=1);
-    const bdel=boiler.filter(r=>r.date&&bkeys[r.date+"|"+r.item]);
-    boiler=boiler.filter(r=>!(r.date&&bkeys[r.date+"|"+r.item]));
+    const sameKind=r=>((+r.lpg||0)>0&&(+r.liters||0)===0);
+    const bdel=boiler.filter(r=>r.date&&bkeys[r.date+"|"+r.item]&&sameKind(r));
+    boiler=boiler.filter(r=>!(r.date&&bkeys[r.date+"|"+r.item]&&sameKind(r)));
     brows.forEach(r=>boiler.push(r));
     mcsave();slsave();bsave();rerenderActive();
     toast("นำเข้า Boiler: เดินเครื่อง "+mrows.length+" ครั้ง · จ่ายไอน้ำ "+srows.length+" รายการ");
@@ -3182,9 +3230,11 @@ document.getElementById("csvFile").onchange=async(ev)=>{
       if(r.fuel_type==="LPG")agg[k].lpg+=r.fuel_qty; else agg[k].liters+=r.fuel_qty;
     });
     const brows=Object.keys(agg).map(k=>agg[k]);
+    // ลบเฉพาะแถวชนิดเชื้อเพลิงเดียวกัน — วันเดียวกันโรงเดียวกันอาจได้ทั้งน้ำมันเตาและแก๊ส
     const bkeys={};brows.forEach(r=>bkeys[r.date+"|"+r.item]=1);
-    const bdel=boiler.filter(r=>r.date&&bkeys[r.date+"|"+r.item]);
-    boiler=boiler.filter(r=>!(r.date&&bkeys[r.date+"|"+r.item]));
+    const sameKind=r=>((+r.lpg||0)>0&&(+r.liters||0)===0);
+    const bdel=boiler.filter(r=>r.date&&bkeys[r.date+"|"+r.item]&&sameKind(r));
+    boiler=boiler.filter(r=>!(r.date&&bkeys[r.date+"|"+r.item]&&sameKind(r)));
     brows.forEach(r=>boiler.push(r));
     mcsave();slsave();bsave();rerenderActive();
     toast("นำเข้าสมุด Boiler "+mrows.length+" แถว · รายการจ่าย "+srows.length+" รายการ");
@@ -3227,8 +3277,10 @@ document.getElementById("csvFile").onchange=async(ev)=>{
         hours:parseFloat(o.hours)||0,liters:parseFloat(o.liters)||0,lpg:parseFloat(o.lpg)||0,user:o.user||"นำเข้า"});
     }
     const months={};rows.forEach(r=>months[r.month]=1);
-    const del=boiler.filter(r=>months[r.month]);      // ของเดิมในเดือนที่นำเข้า -> ลบทิ้ง
-    boiler=boiler.filter(r=>!months[r.month]);
+    // ลบเฉพาะแถวน้ำมันเตาของเดือนนั้น — แถวแก๊ส LPG ต้องไม่ถูกลบไปด้วย
+    const isGas=r=>((+r.lpg||0)>0&&(+r.liters||0)===0);
+    const del=boiler.filter(r=>months[r.month]&&!isGas(r));
+    boiler=boiler.filter(r=>!(months[r.month]&&!isGas(r)));
     rows.forEach(r=>boiler.push(r));
     bsave();rerenderActive();
     toast("นำเข้าน้ำมันเตา "+rows.length+" แถว"+(CLOUD()?" กำลังซิงค์...":""));
