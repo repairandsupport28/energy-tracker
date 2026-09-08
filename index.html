@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-08-21g (เริ่มใหม่แบบเก็บข้อมูลเจ้าหน้าที่ไว้ได้)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-08a (แปลงเวลาที่ชีตทำเพี้ยนกลับอัตโนมัติ)</b></p>
 </header>
 
 <div class="wrap">
@@ -734,6 +734,27 @@ function toast(m){const t=document.getElementById("toast");t.textContent=m;t.cla
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 /* บังคับช่องตัวเลขให้เป็นตัวเลขจริงเสมอ — ถ้าเป็นข้อความ การบวกจะกลายเป็นการต่อข้อความ
    แล้วยอดรวมจะเพี้ยนเป็น ∞ (ใช้ทั้งตอนอ่านจากเครื่องและตอนดึงจากชีต) */
+/* Google Sheets ชอบแปลง "07:00" เป็นค่าเวลาฐาน 1899-12-30 แล้วส่งกลับมาเป็น ISO
+   ฟังก์ชันนี้แปลงกลับเป็น HH:MM ให้เอง ไม่ว่าชีตจะเก็บแบบไหน */
+function fixTimeVal(v){
+  if(v===""||v==null)return "";
+  var s=String(v);
+  if(/^\d{1,2}:\d{2}$/.test(s))return s;
+  if(!/^\d{4}-\d{2}-\d{2}T/.test(s))return s;
+  var t=new Date(s); if(isNaN(t))return s;
+  var L=new Date(t.getTime()+6*3600000+42*60000+4000);   // ชดเชยเวลามาตรฐานกรุงเทพยุคเก่า
+  var hh=L.getUTCHours()+(L.getUTCDate()-30)*24, mm=L.getUTCMinutes();
+  if(hh<0||hh>24)return s;
+  return ("0"+hh).slice(-2)+":"+("0"+mm).slice(-2);
+}
+function fixTimes(arr,keys){
+  if(!Array.isArray(arr))return [];
+  return arr.map(function(r){
+    if(!r||typeof r!=="object")return r;
+    keys.forEach(function(k){ if(r[k]!==undefined)r[k]=fixTimeVal(r[k]); });
+    return r;
+  });
+}
 function fixNums(arr,keys){
   if(!Array.isArray(arr))return [];
   return arr.map(function(r){
@@ -858,6 +879,10 @@ async function refreshFromCloud(force){
         return o;
       }):arr;
       Object.keys(NUMF).forEach(function(s){ if(d[s])d[s]=num(d[s],NUMF[s]); });
+      // แปลงเวลาที่ชีตเปลี่ยนเป็นค่าวันที่ กลับเป็น HH:MM
+      if(d.machine)d.machine=fixTimes(d.machine,["t_start","t_end"]);
+      if(d.steamlog)d.steamlog=fixTimes(d.steamlog,["t_start","t_end"]);
+      if(d.water)d.water=fixTimes(d.water,["t_open","t_close"]);
       // auto: ถ้าบนชีตมีน้อยกว่าในเครื่อง = ชีตยังรับไม่ครบ ห้ามทับ (กันข้อมูลหายแบบเงียบ ๆ)
       let short=[];
       const pick=(cloud,local,name)=>{
@@ -1831,9 +1856,9 @@ document.getElementById("btnEmCsv").onclick=function(){
 
 /* ============ เฟส B: รายงานรายเดือน ============ */
 const MCKEY="agri_machine_v1";
-let machine=fixNums(JSON.parse(localStorage.getItem(MCKEY)||"[]"),["hours","fuel_qty"]);
+let machine=fixTimes(fixNums(JSON.parse(localStorage.getItem(MCKEY)||"[]"),["hours","fuel_qty"]),["t_start","t_end"]);
 const SLKEY="agri_steamlog_v1";
-let steamlog=fixNums(JSON.parse(localStorage.getItem(SLKEY)||"[]"),["hours","fuel_qty"]);
+let steamlog=fixTimes(fixNums(JSON.parse(localStorage.getItem(SLKEY)||"[]"),["hours","fuel_qty"]),["t_start","t_end"]);
 function slsave(){localStorage.setItem(SLKEY,JSON.stringify(steamlog));}
 function mcsave(){localStorage.setItem(MCKEY,JSON.stringify(machine));}
 const LOGKEY="agri_loginlog_v1";
@@ -1981,7 +2006,7 @@ function exportReportDocx(){
 
 /* ============ น้ำประปา (water) ============ */
 const WKEY="agri_water_v1";
-let water=fixNums(JSON.parse(localStorage.getItem(WKEY)||"[]"),["raw3000","m_prev","m_curr","produced","alum","caoh","sugar","hours"]);
+let water=fixTimes(fixNums(JSON.parse(localStorage.getItem(WKEY)||"[]"),["raw3000","m_prev","m_curr","produced","alum","caoh","sugar","hours"]),["t_open","t_close"]);
 function wsave(){localStorage.setItem(WKEY,JSON.stringify(water));}
 (function(){var el=document.getElementById("w_date");if(el)el.valueAsDate=new Date();
   var wf=document.getElementById("wRecFilter");if(wf)BMONTHS.forEach(function(ym){var o=document.createElement("option");o.value=ym;o.textContent=thMonth(ym);wf.appendChild(o);});})();
