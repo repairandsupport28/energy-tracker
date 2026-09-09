@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-08a (แปลงเวลาที่ชีตทำเพี้ยนกลับอัตโนมัติ)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-09a (กราฟและตารางรายการ × เดือน รวมแก๊ส LPG)</b></p>
 </header>
 
 <div class="wrap">
@@ -567,12 +567,19 @@
     </div>
 
     <div class="card view-only">
-      <h2>แนวโน้มการใช้น้ำมันเตารายเดือน</h2>
+      <h2>แนวโน้มการใช้เชื้อเพลิงรายเดือน</h2>
+      <div class="src">แท่งส้ม = น้ำมันเตา (ลิตร) อ่านแกนซ้าย · แท่งฟ้า = แก๊ส LPG (กก.) อ่านแกนขวา — คนละหน่วย เทียบความสูงกันไม่ได้</div>
       <canvas id="chartBoiler"></canvas>
     </div>
 
     <div class="card view-only">
-      <h2>ตารางสรุป รายการ × เดือน (ลิตร)</h2>
+      <h2>ตารางสรุป รายการ × เดือน</h2>
+      <div class="controls">
+        <div><label>ค่าที่แสดง</label><select id="bpVal" onchange="renderBoiler()">
+          <option value="liters">น้ำมันเตา (ลิตร)</option>
+          <option value="lpg">แก๊ส LPG (กก.)</option>
+          <option value="both">ทั้งสองอย่าง (ลิตร | กก.)</option></select></div>
+      </div>
       <div class="table-scroll"><table id="bPivot"></table></div>
     </div>
 
@@ -1727,23 +1734,39 @@ function renderBoiler(){
 
   // pivot item x month (liters), only months that have data
   const usedMonths=BMONTHS.filter(m=>boiler.some(r=>r.month===m));
-  const cell={};boiler.forEach(r=>{cell[r.item+"|"+r.month]=(cell[r.item+"|"+r.month]||0)+r.liters;});
-  let head="<tr><th>รายการ</th>"+usedMonths.map(m=>`<th>${thMonth(m)}</th>`).join("")+"<th>รวม</th></tr>";
+  const pv=(document.getElementById("bpVal")||{}).value||"liters";
+  const cellL={},cellG={};
+  boiler.forEach(r=>{const k=r.item+"|"+r.month;
+    cellL[k]=(cellL[k]||0)+(+r.liters||0); cellG[k]=(cellG[k]||0)+(+r.lpg||0);});
+  const show=(k)=> pv==="liters"?fmt(cellL[k]||0)
+              : pv==="lpg"?fmt(cellG[k]||0)
+              : ((cellL[k]||0)?fmt(cellL[k]):"–")+' <span style="color:var(--muted)">|</span> '+((cellG[k]||0)?'<span style="color:#0891b2">'+fmt(cellG[k])+'</span>':"–");
+  const unitTxt=pv==="liters"?"ลิตร":pv==="lpg"?"กก.":"ลิตร | กก.";
+  let head="<tr><th>รายการ</th>"+usedMonths.map(m=>`<th>${thMonth(m)}</th>`).join("")+"<th>รวม ("+unitTxt+")</th></tr>";
   let body=BITEMS.map(it=>{
-    let rowSum=0;
-    const tds=usedMonths.map(m=>{const v=cell[it+"|"+m]||0;rowSum+=v;return "<td>"+fmt(v)+"</td>";}).join("");
-    return `<tr><td>${it}</td>${tds}<td><b>${fmt(rowSum)}</b></td></tr>`;
+    let sL=0,sG=0;
+    const tds=usedMonths.map(m=>{const k=it+"|"+m;sL+=cellL[k]||0;sG+=cellG[k]||0;return "<td>"+show(k)+"</td>";}).join("");
+    const tot=pv==="liters"?fmt(sL):pv==="lpg"?fmt(sG):(sL?fmt(sL):"–")+" | "+(sG?fmt(sG):"–");
+    return `<tr><td>${it}</td>${tds}<td><b>${tot}</b></td></tr>`;
   }).join("");
-  const colSum=usedMonths.map(m=>boiler.filter(r=>r.month===m).reduce((s,r)=>s+r.liters,0));
-  const grand=colSum.reduce((a,b)=>a+b,0);
-  body+=`<tr><td><b>รวม</b></td>${colSum.map(v=>"<td><b>"+fmt(v)+"</b></td>").join("")}<td><b>${fmt(grand)}</b></td></tr>`;
+  const colL=usedMonths.map(m=>boiler.filter(r=>r.month===m).reduce((s,r)=>s+(+r.liters||0),0));
+  const colG=usedMonths.map(m=>boiler.filter(r=>r.month===m).reduce((s,r)=>s+(+r.lpg||0),0));
+  const grandL=colL.reduce((a,b)=>a+b,0), grandG=colG.reduce((a,b)=>a+b,0);
+  const colTxt=i=> pv==="liters"?fmt(colL[i]):pv==="lpg"?fmt(colG[i]):(colL[i]?fmt(colL[i]):"–")+" | "+(colG[i]?fmt(colG[i]):"–");
+  const grandTxt=pv==="liters"?fmt(grandL):pv==="lpg"?fmt(grandG):fmt(grandL)+" | "+fmt(grandG);
+  body+=`<tr><td><b>รวม</b></td>${usedMonths.map((m,i)=>"<td><b>"+colTxt(i)+"</b></td>").join("")}<td><b>${grandTxt}</b></td></tr>`;
+  const colSum=colL, grand=grandL;
   document.getElementById("bPivot").innerHTML=head+(boiler.length?body:`<tr><td class="empty">ยังไม่มีข้อมูล กด "โหลดข้อมูลจาก PDF"</td></tr>`);
 
   // chart monthly liters
   if(chartB)chartB.destroy();
   chartB=new Chart(document.getElementById("chartBoiler"),{type:"bar",
-    data:{labels:usedMonths.map(thMonth),datasets:[{label:"น้ำมันเตา (ลิตร)",data:colSum,backgroundColor:"#ea580c"}]},
-    options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
+    data:{labels:usedMonths.map(thMonth),datasets:[
+      {label:"น้ำมันเตา (ลิตร)",data:colL,backgroundColor:"#ea580c",yAxisID:"y"},
+      {label:"แก๊ส LPG (กก.)",data:colG,backgroundColor:"#0891b2",yAxisID:"y1"}]},
+    options:{responsive:true,plugins:{legend:{position:"bottom"}},
+      scales:{y:{position:"left",title:{display:true,text:"น้ำมันเตา (ลิตร)"}},
+              y1:{position:"right",title:{display:true,text:"แก๊ส LPG (กก.)"},grid:{drawOnChartArea:false}}}}});
 
   // records (มีตัวกรองเดือน)
   const bf=document.getElementById("bRecFilter");const bfilt=bf?bf.value:"";
