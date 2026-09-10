@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-09a (กราฟและตารางรายการ × เดือน รวมแก๊ส LPG)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-10a (เลิกนับเชื้อเพลิงซ้ำ 2 ที่)</b></p>
 </header>
 
 <div class="wrap">
@@ -1275,12 +1275,9 @@ function saveSteam(){
       liters:a.fuel,lpg:a.lpg,user:user};
     boiler.push(rec);bsave();pushRow("boiler",rec);
   });
-  // 3) ยอดรวมของวัน -> ชีต records (ให้ตารางไวท์บอร์ด/ภาพรวมแสดงถูก)
-  if(totFuel>0||A.lpgLP>0){
-    var rr=Object.assign({id:uid(),date:date,user:user},blankRec());
-    rr.fuel=totFuel; rr.lpg=A.lpgLP;
-    records.push(rr);save();pushRow("records",rr);
-  }
+  /* 3) เดิมเคยเขียนยอดรวมของวันซ้ำลงชีต records ด้วย — ถอดออกแล้ว
+        เพราะทำให้ตารางสรุปนับซ้ำเป็นสองเท่า
+        ตอนนี้ตารางสรุป/กราฟ/ภาพรวม ดึงจากชีต boiler ซึ่งเป็นแหล่งข้อมูลจริงอยู่แล้ว */
   // ล้างฟอร์ม
   MACHINES.forEach(function(m){var k=mKey(m.id);["_s","_e","_q","_mp","_mc"].forEach(function(x){
       var el=document.getElementById("mc_"+k+x);if(el)el.value="";});});
@@ -1432,8 +1429,8 @@ function matrixAgg(){
     var v=+row[c[4]]||0;return v>0?v:null;}
   return {val:(m,c)=>{
     if(c[3]==="boiler")return bo[m]||0;
-    // LPG: รวมของใหม่จากบันทึกไอน้ำ (boiler) กับของเก่าที่เคยกรอกใน records
-    if(c[3]==="boiler_lpg")return (bg[m]||0)+((rec[m]&&rec[m].lpg)||0);
+    // LPG ดึงจากบันทึกไอน้ำ (boiler) อย่างเดียว — ไม่บวก records อีก กันนับซ้ำ
+    if(c[3]==="boiler_lpg")return bg[m]||0;
     if(c[3]==="report"){var rv=repVal(m,c);return rv!==null?rv:((rec[m]&&rec[m][c[0]])||0);}
     return (rec[m]&&rec[m][c[0]])||0;
   }};
@@ -1704,7 +1701,7 @@ function renderBoiler(){
   const hL=boiler.reduce((s,r)=>s+((+r.liters||0)>0?(+r.hours||0):0),0);
   const hG=boiler.reduce((s,r)=>s+((+r.lpg||0)>0?(+r.hours||0):0),0);
   const totL=boiler.reduce((s,r)=>s+(+r.liters||0),0);
-  const totG=boiler.reduce((s,r)=>s+(+r.lpg||0),0)+records.reduce((s,r)=>s+(+r.lpg||0),0);
+  const totG=boiler.reduce((s,r)=>s+(+r.lpg||0),0);
   // ชั่วโมงเดินเครื่องจริง (จากตาราง machine)
   const runL=machine.filter(r=>FUELM.indexOf(r.machine)>=0).reduce((s,r)=>s+(+r.hours||0),0);
   const runG=machine.filter(r=>GASM.indexOf(r.machine)>=0).reduce((s,r)=>s+(+r.hours||0),0);
