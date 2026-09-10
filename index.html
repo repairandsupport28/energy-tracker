@@ -85,7 +85,7 @@
 <body>
 <header>
   <h1>ระบบติดตามการใช้พลังงานไฟฟ้าและสารเคมี</h1>
-  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-10a (เลิกนับเชื้อเพลิงซ้ำ 2 ที่)</b></p>
+  <p>โรงงานการซ่อมและสนับสนุน · บันทึกจากมือถือหรือคอมพิวเตอร์ · สรุปราย วัน/สัปดาห์/เดือน · <b>เวอร์ชัน 2026-09-11a (มุมมองสอดคล้องกันทุกหน้า + ป้ายกำกับที่มา)</b></p>
 </header>
 
 <div class="wrap">
@@ -102,7 +102,7 @@
     <button class="tab" data-tab="mine">📋 รายการของฉัน</button>
     <button class="tab" data-tab="delreq" id="tabDelreq">🔔 คำขอลบข้อมูล</button>
     <button class="tab" data-tab="records">📋 รายการบันทึก</button>
-    <button class="tab" data-tab="exec">🏢 ภาพรวมผู้บริหาร</button>
+    <button class="tab" data-tab="exec">🏢 ภาพรวมทั้งกอง</button>
     <button class="tab" data-tab="status">🕓 สถานะการบันทึก</button>
     <button class="tab" data-tab="summary">📊 ข้อมูลย้อนหลัง</button>
     <button class="tab" data-tab="report">📋 แบบฟอร์ม ปจด</button>
@@ -176,7 +176,7 @@
     </div>
 
     <div class="card view-only">
-      <span class="blk">A) ภาพรวมการใช้ไฟทั้งกองโรงงาน</span>
+      <span class="blk">A) ภาพรวมการใช้ไฟทั้งกองโรงงาน</span><div class="src"><b>ระดับเดือน</b> · หน่วย: kWh · ที่มา: แบบฟอร์ม ปจด</div>
       <div class="src">หน่วย: kWh · ที่มา: บิลการไฟฟ้าส่วนภูมิภาค (PEA) · กรอกที่แท็บ "📄 ข้อมูลรายงาน"</div>
       <div class="controls"><div><label>เดือน</label><select id="peaMonth" onchange="renderPEA()"></select></div></div>
       <div class="kpis" id="peaKpis"></div>
@@ -184,7 +184,7 @@
     </div>
 
     <div class="card view-only">
-      <span class="blk">B) การใช้ไฟแยกตามสถานีไฟฟ้า</span>
+      <span class="blk">B) การใช้ไฟแยกตามสถานีไฟฟ้า</span><div class="src"><b>ระดับสถานี</b> · หน่วย: MWh · ที่มา: บันทึกมิเตอร์รายเดือน</div>
       <div class="src">หน่วย: <b>MWh</b> (1 MWh = 1,000 kWh) · ที่มา: จดมิเตอร์รายเดือน โดยส่วนไฟฟ้า</div>
       <div class="table-scroll"><table id="emPivot"></table></div>
       <div style="margin-top:14px"><canvas id="chartElecMon"></canvas></div>
@@ -267,7 +267,7 @@
     </div>
 
     <div class="card view-only">
-      <h2>ตารางสรุปรายเดือน</h2>
+      <h2>ตารางสรุปรายเดือน</h2><div class="src"><b>ระดับเดือน</b> · น้ำประปาและสารเคมี · ที่มา: บันทึกน้ำประปารายวัน</div>
       <div class="src">รวมทั้งการผลิตน้ำประปาและการบำบัดน้ำเสีย</div>
       <div class="table-scroll"><table id="wMonth"></table></div>
       <div style="display:none"><span id="chemKpis"></span><table id="chemTable"></table><canvas id="chartChemSum"></canvas><select id="chemFilter"></select><button id="btnChemCsv"></button></div>
@@ -418,14 +418,15 @@
       </div>
       <div class="kpis" id="execKpis" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
     </div>
-    <div class="card"><h2>แนวโน้มไฟฟ้า (kWh) รายเดือน</h2><canvas id="chartExecElec"></canvas></div>
-    <div class="card"><h2>⛽ แนวโน้มการใช้น้ำมันเตา รายเดือน</h2>
-      <div class="src">หน่วย: ลิตร · ที่มา: ส่วนผลิตไอน้ำ</div><canvas id="chartExecFuel"></canvas></div>
-    <div class="card"><h2>💧 แนวโน้มการผลิตน้ำประปา รายเดือน</h2>
+    <div class="card"><h2>แนวโน้มไฟฟ้า (kWh) รายเดือน</h2><div class="src">ระดับเดือน · ทั้งกองรวมกัน · ที่มา: แบบฟอร์ม ปจด และบันทึกมิเตอร์ไฟฟ้า · ดูแยกสถานีได้ที่แท็บ ⚡ ไฟฟ้า</div><canvas id="chartExecElec"></canvas></div>
+    <div class="card"><h2>⛽ แนวโน้มการใช้เชื้อเพลิงผลิตไอน้ำ รายเดือน</h2>
+      <div class="src">แท่งส้ม = น้ำมันเตา (ลิตร) อ่านแกนซ้าย · แท่งฟ้า = แก๊ส LPG (กก.) อ่านแกนขวา
+        · ระดับเดือน ทุกโรงรวมกัน · ที่มา: ส่วนผลิตไอน้ำ · ดูรายวัน/รายโรงได้ที่แท็บ 🔥 ไอน้ำ–เชื้อเพลิง</div><canvas id="chartExecFuel"></canvas></div>
+    <div class="card"><h2>💧 แนวโน้มการผลิตน้ำประปา รายเดือน</h2><div class="src">ระดับเดือน · หน่วย: ลบ.ม. · ที่มา: ส่วนผลิตน้ำประปา · ดูรายวันได้ที่แท็บ 💧 น้ำประปา–สารเคมี</div>
       <div class="src">หน่วย: ลบ.ม. · ที่มา: ส่วนผลิตน้ำประปา</div><canvas id="chartExecWater"></canvas></div>
 
     <div class="card">
-      <span class="blk">เปรียบเทียบปีงบประมาณ</span>
+      <span class="blk">เปรียบเทียบปีงบประมาณ</span><div class="src">ระดับเดือน · เทียบปีงบต่อปีงบ · ใช้ประกอบการวางแผนงบประมาณ</div>
       <div class="src">เทียบเดือนต่อเดือนตามปีงบ (ต.ค.–ก.ย.) · YTD = ยอดสะสมเฉพาะเดือนที่มีข้อมูลทั้งสองปี</div>
       <div class="controls">
         <div><label>ปีงบหลัก</label><select id="fyA" onchange="renderFYCompare()"></select></div>
@@ -437,7 +438,7 @@
       <div class="table-scroll" style="margin-top:14px"><table id="fyTable"></table></div>
     </div>
     <div class="card">
-      <h2>ตารางสรุปรายเดือน (แบบไวท์บอร์ด)</h2>
+      <h2>ตารางสรุปรายเดือน (แบบไวท์บอร์ด)</h2><div class="src"><b>ระดับเดือน · ทุกพลังงานรวมในตารางเดียว</b> — ไฟฟ้า โซลาร์ เชื้อเพลิง สารเคมี · ตัวเลขชุดเดียวกับแท็บของแต่ละหน่วย แค่ย่อให้เห็นภาพรวม</div>
       <div class="controls">
         <div><label>ปีงบ</label><select id="exFY" onchange="renderExec()"></select></div>
       </div>
@@ -453,7 +454,7 @@
   <section id="tab-summary" style="display:none">
     <div class="card">
       <h2>ข้อมูลย้อนหลัง — เลือกช่วงเวลาและดาวน์โหลด</h2>
-      <div class="src">ใช้สำหรับดึงข้อมูลไปทำรายงาน · ภาพรวมและตารางไวท์บอร์ดดูได้ที่แท็บ 🏢 ภาพรวมผู้บริหาร</div>
+      <div class="src">ใช้สำหรับดึงข้อมูลไปทำรายงาน · ภาพรวมและตารางไวท์บอร์ดดูได้ที่แท็บ 🏢 ภาพรวมทั้งกอง</div>
       <div class="controls">
         <div>
           <label>ช่วงเวลา</label>
@@ -573,7 +574,7 @@
     </div>
 
     <div class="card view-only">
-      <h2>ตารางสรุป รายการ × เดือน</h2>
+      <h2>ตารางสรุป รายการ × เดือน</h2><div class="src"><b>ระดับเดือน · แยกรายโรงที่รับไอน้ำ</b> — ยอดรวมทุกโรงเท่ากับตัวเลขในแท็บ 🏢 ภาพรวมทั้งกอง</div>
       <div class="controls">
         <div><label>ค่าที่แสดง</label><select id="bpVal" onchange="renderBoiler()">
           <option value="liters">น้ำมันเตา (ลิตร)</option>
@@ -602,7 +603,7 @@
     </div>
 
     <div class="card view-only">
-      <span class="blk">ชั่วโมงเดินเครื่องกำเนิดไอน้ำ</span>
+      <span class="blk">ชั่วโมงเดินเครื่องกำเนิดไอน้ำ</span><div class="src"><b>ระดับเครื่อง</b> · ใช้วางแผนซ่อมบำรุง · ที่มา: บันทึกไอน้ำรายวัน</div>
       <div class="src">ใช้วางแผนซ่อมบำรุง · หน่วย: ชั่วโมง · ที่มา: บันทึกไอน้ำรายวัน · <b>ช่วงเวลาตั้งที่แถบด้านบน</b></div>
       <div class="controls">
         <div style="display:none"><select id="mcMode"><option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="fy">รายปีงบ</option></select>
@@ -620,7 +621,7 @@
     </div>
 
     <div class="card view-only" style="border-left:5px solid #0891b2">
-      <span class="blk">สรุปการใช้แก๊ส LPG</span>
+      <span class="blk">สรุปการใช้แก๊ส LPG</span><div class="src"><b>ระดับเครื่องและระดับโรง</b> · เฉพาะเครื่องแก๊ส · หน่วย: กก.</div>
       <div class="src">เฉพาะเครื่องแก๊ส No.1.1 · No.1.2 · No.1.3 · หน่วย: กก. · ช่วงเวลาตั้งที่แถบด้านบน</div>
       <div class="kpis" id="gasKpis"></div>
       <div class="section-title">แยกตามโรงที่รับไอน้ำ</div>
@@ -1307,14 +1308,32 @@ function inRange(dateStr){
   const f=document.getElementById("s_from").value,t=document.getElementById("s_to").value;
   if(f&&dateStr<f)return false;if(t&&dateStr>t)return false;return true;
 }
+/* รวมข้อมูลจากทุกแหล่งให้ครบ — ไฟฟ้าจาก records · เชื้อเพลิงจาก boiler (ระบบไอน้ำ)
+   · สารเคมีจาก water  (เดิมดึงจาก records อย่างเดียว ทำให้เชื้อเพลิงเป็น 0 หลังเลิกเขียนซ้ำ) */
 function aggregate(period){
   const map={};
+  const cell=k=>{if(!map[k]){map[k]={key:k};FIELDS.forEach(([f])=>map[k][f]=0);}return map[k];};
   records.filter(r=>inRange(r.date)).forEach(r=>{
-    const k=periodKey(r.date,period);
-    if(!map[k]){map[k]={key:k};FIELDS.forEach(([f])=>map[k][f]=0);}
-    FIELDS.forEach(([f])=>map[k][f]+=(+r[f]||0));
+    const c=cell(periodKey(r.date,period));
+    FIELDS.forEach(([f])=>c[f]+=(+r[f]||0));
+  });
+  boiler.filter(r=>r.date&&inRange(r.date)).forEach(r=>{
+    const c=cell(periodKey(r.date,period));
+    c.fuel+=(+r.liters||0); c.lpg+=(+r.lpg||0);
+  });
+  water.filter(r=>r.date&&inRange(r.date)).forEach(r=>{
+    const c=cell(periodKey(r.date,period));
+    c.alum+=(+r.alum||0); c.caoh+=(+r.caoh||0); c.sugar+=(+r.sugar||0);
   });
   return Object.values(map).sort((a,b)=>a.key<b.key?-1:1);
+}
+// ยอดรวมของช่วงที่เลือก (ใช้แหล่งเดียวกับ aggregate)
+function periodTotals(){
+  const t={};FIELDS.forEach(([f])=>t[f]=0);
+  records.filter(r=>inRange(r.date)).forEach(r=>FIELDS.forEach(([f])=>t[f]+=(+r[f]||0)));
+  boiler.filter(r=>r.date&&inRange(r.date)).forEach(r=>{t.fuel+=(+r.liters||0);t.lpg+=(+r.lpg||0);});
+  water.filter(r=>r.date&&inRange(r.date)).forEach(r=>{t.alum+=(+r.alum||0);t.caoh+=(+r.caoh||0);t.sugar+=(+r.sugar||0);});
+  return t;
 }
 
 let chartE,chartC;
@@ -1338,7 +1357,7 @@ function renderSummary(){
     FIELDS.forEach(([f])=>tot[f]=rows.reduce((s,r)=>s+(+r[f]||0),0));
   }else{
     rows=aggregate(period);
-    FIELDS.forEach(([f])=>tot[f]=records.filter(r=>inRange(r.date)).reduce((s,r)=>s+(+r[f]||0),0));
+    tot=periodTotals();
   }
   const genTot=tot.solar_roof+tot.solar_farm, useTot=tot.use_office+tot.use_pump;
   document.getElementById("kpis").innerHTML=`
@@ -1360,9 +1379,10 @@ function renderSummary(){
   if(chartC)chartC.destroy();
   chartC=new Chart(document.getElementById("chartChem"),{type:"line",
     data:{labels,datasets:[
-      {label:"Fuel oil (L)",data:rows.map(r=>r.fuel),borderColor:"#ea580c",tension:.3},
-      {label:"ALUM (kg)",data:rows.map(r=>r.alum),borderColor:"#7c3aed",tension:.3},
-      {label:"Sugar (kg)",data:rows.map(r=>r.sugar),borderColor:"#db2777",tension:.3}
+      {label:"น้ำมันเตา (ลิตร)",data:rows.map(r=>r.fuel),borderColor:"#ea580c",tension:.3},
+      {label:"แก๊ส LPG (กก.)",data:rows.map(r=>r.lpg),borderColor:"#0891b2",tension:.3},
+      {label:"สารส้ม (กก.)",data:rows.map(r=>r.alum),borderColor:"#7c3aed",tension:.3},
+      {label:"น้ำตาล (กก.)",data:rows.map(r=>r.sugar),borderColor:"#db2777",tension:.3}
     ]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
   const head="<tr><th>ช่วง</th>"+FIELDS.map(f=>`<th>${f[1]}<br>(${f[2]})</th>`).join("")+"</tr>";
   const body=rows.map(r=>"<tr><td>"+r.key+"</td>"+FIELDS.map(f=>"<td>"+fmt(r[f[0]])+"</td>").join("")+"</tr>").join("")||
@@ -3084,8 +3104,11 @@ function renderExec(){
   // แยกกราฟ: น้ำมันเตา และ ผลิตน้ำประปา เป็นคนละเรื่อง ไม่ควรอยู่ในกราฟเดียวกัน
   if(chartEx2)chartEx2.destroy();
   chartEx2=new Chart(document.getElementById("chartExecFuel"),{type:"bar",data:{labels:lab,datasets:[
-    {label:"น้ำมันเตา (ลิตร)",data:D.map(x=>x.fuel),backgroundColor:"#ea580c"}
-  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{title:{display:true,text:"ลิตร"}}}}});
+    {label:"น้ำมันเตา (ลิตร)",data:D.map(x=>x.fuel),backgroundColor:"#ea580c",yAxisID:"y"},
+    {label:"แก๊ส LPG (กก.)",data:D.map(x=>x.lpg),backgroundColor:"#0891b2",yAxisID:"y1"}
+  ]},options:{responsive:true,plugins:{legend:{position:"bottom"}},
+    scales:{y:{position:"left",title:{display:true,text:"น้ำมันเตา (ลิตร)"}},
+            y1:{position:"right",title:{display:true,text:"แก๊ส LPG (กก.)"},grid:{drawOnChartArea:false}}}}});
   if(chartEx3)chartEx3.destroy();
   chartEx3=new Chart(document.getElementById("chartExecWater"),{type:"bar",data:{labels:lab,datasets:[
     {label:"ผลิตน้ำประปา (ลบ.ม.)",data:D.map(x=>x.produced),backgroundColor:"#0891b2"}
